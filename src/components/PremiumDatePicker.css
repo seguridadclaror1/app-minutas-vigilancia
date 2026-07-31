@@ -1,6 +1,7 @@
 .premium-datepicker {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 .pdp-trigger {
@@ -74,8 +75,13 @@
 .pdp-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
-  width: 280px; /* Ancho fijo para el calendario */
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw - 24px, 280px);
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -88,9 +94,9 @@
 }
 
 /* En pantallas muy pequeñas, si el calendario se sale, centrarlo un poco */
-@media (max-width: 340px) {
+@media (max-width: 420px) {
   .pdp-dropdown {
-    width: 260px;
+    width: min(100vw - 16px, 260px);
     padding: 12px;
   }
 }
