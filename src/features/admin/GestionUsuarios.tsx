@@ -78,7 +78,7 @@ export default function GestionUsuarios() {
     }
   };
 
-  const handleEditClick = (usuario: Perfil) => {
+  const handleEditClick = (usuario?: Perfil) => {
     setUsuarioToEdit(usuario);
     setIsModalOpen(true);
   };
