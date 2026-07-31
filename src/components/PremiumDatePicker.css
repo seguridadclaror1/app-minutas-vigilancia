@@ -77,8 +77,8 @@
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  width: min(100%, 280px);
-  max-width: 100%;
+  width: 280px;
+  min-width: 280px;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -93,16 +93,6 @@
   padding: 16px;
   margin: 0 auto;
   animation: pdpFadeIn 0.2s ease-out forwards;
-}
-
-/* Ajuste en pantallas pequeñas para que el calendario use todo el espacio disponible */
-@media (max-width: 420px) {
-  .pdp-dropdown {
-    width: calc(100vw - 16px);
-    left: 8px;
-    right: 8px;
-    padding: 12px;
-  }
 }
 
 @keyframes pdpFadeIn {

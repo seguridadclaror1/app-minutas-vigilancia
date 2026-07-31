@@ -177,6 +177,16 @@ export default function SeguimientoMinutas() {
       <div className={`seg-filtros-panel ${showFiltros ? 'open' : ''}`}>
         <div className="seg-filtros-inner">
 
+          {/* Fecha — Premium Custom */}
+          <div className="seg-filter-group">
+            <label className="seg-filter-label">Fecha</label>
+            <PremiumDatePicker 
+              startDate={fechaFiltro.start}
+              endDate={fechaFiltro.end}
+              onChange={(start, end) => { setFechaFiltro({ start, end }); setCurrentPage(1); }} 
+            />
+          </div>
+
           {/* Buscador */}
           <div className="seg-filter-group">
             <label className="seg-filter-label">Nombre o cédula</label>
@@ -190,16 +200,6 @@ export default function SeguimientoMinutas() {
                 className="seg-search-input"
               />
             </div>
-          </div>
-
-          {/* Fecha — Premium Custom */}
-          <div className="seg-filter-group">
-            <label className="seg-filter-label">Fecha</label>
-            <PremiumDatePicker 
-              startDate={fechaFiltro.start}
-              endDate={fechaFiltro.end}
-              onChange={(start, end) => { setFechaFiltro({ start, end }); setCurrentPage(1); }} 
-            />
           </div>
 
           {/* Sede */}
