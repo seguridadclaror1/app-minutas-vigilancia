@@ -23,8 +23,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [lastActivity, setLastActivity] = useState<number | null>(null);
 
   const SESSION_ACTIVITY_KEY = 'minutas-last-activity';
-  const INACTIVITY_TIMEOUT_MS = 30 * 1000; // Para pruebas: 30 segundos.
-  // Para producción cambiar a 30 * 60 * 1000 (30 minutos).
+  const INACTIVITY_TIMEOUT_SECONDS = 30 * 60; // Cambia este valor para pruebas locales.
+  const INACTIVITY_TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
+  // Para producción usa 30 * 60 (30 minutos).
   const timeoutRef = useRef<number | null>(null);
 
   const clearSessionTimeout = () => {

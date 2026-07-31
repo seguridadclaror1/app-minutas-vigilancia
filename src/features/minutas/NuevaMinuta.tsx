@@ -184,7 +184,7 @@ export default function NuevaMinuta() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Tipo de Novedad <span className="required-asterisk">*</span></label>
+            <label className="form-label">Tipo de Anotación <span className="required-asterisk">*</span></label>
             <PremiumSelect 
               value={tipoNovedadId}
               onChange={setTipoNovedadId}
@@ -200,7 +200,6 @@ export default function NuevaMinuta() {
               <input 
                 type="file" 
                 accept="image/*" 
-                capture="environment" 
                 multiple 
                 ref={fileInputRef}
                 onChange={handleFotoChange}

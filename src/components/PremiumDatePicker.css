@@ -75,12 +75,13 @@
 .pdp-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100vw - 24px, 280px);
+  left: 0;
+  right: 0;
+  width: min(100%, 280px);
   max-width: 100%;
   max-height: calc(100vh - 32px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
@@ -90,13 +91,16 @@
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15), 0 10px 15px -3px rgba(218, 45, 52, 0.08);
   z-index: 60;
   padding: 16px;
+  margin: 0 auto;
   animation: pdpFadeIn 0.2s ease-out forwards;
 }
 
-/* En pantallas muy pequeñas, si el calendario se sale, centrarlo un poco */
+/* Ajuste en pantallas pequeñas para que el calendario use todo el espacio disponible */
 @media (max-width: 420px) {
   .pdp-dropdown {
-    width: min(100vw - 16px, 260px);
+    width: calc(100vw - 16px);
+    left: 8px;
+    right: 8px;
     padding: 12px;
   }
 }
