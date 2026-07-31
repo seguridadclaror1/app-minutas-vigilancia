@@ -1,0 +1,270 @@
+.premium-datepicker {
+  position: relative;
+  width: 100%;
+}
+
+.pdp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  background: #ffffff;
+  border: 1.5px solid #e4bdba;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  user-select: none;
+}
+
+.pdp-trigger:hover, .pdp-trigger.active {
+  border-color: #da2d34;
+  background: #fff;
+}
+
+.pdp-trigger.active {
+  box-shadow: 0 0 0 3px rgba(218, 45, 52, 0.12);
+}
+
+.pdp-icon {
+  color: #906f6d;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.pdp-trigger.active .pdp-icon {
+  color: #da2d34;
+}
+
+.pdp-display {
+  flex: 1;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  color: #281716;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdp-display.placeholder {
+  color: #906f6d;
+}
+
+.pdp-clear {
+  position: relative;
+  background: #fff0ef;
+  border: none;
+  color: #da2d34;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+.pdp-clear:hover {
+  background: #ffe1df;
+}
+
+/* Modal / Dropdown */
+.pdp-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px; /* Ancho fijo para el calendario */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #ffe1df;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15), 0 10px 15px -3px rgba(218, 45, 52, 0.08);
+  z-index: 60;
+  padding: 16px;
+  animation: pdpFadeIn 0.2s ease-out forwards;
+}
+
+/* En pantallas muy pequeñas, si el calendario se sale, centrarlo un poco */
+@media (max-width: 340px) {
+  .pdp-dropdown {
+    width: 260px;
+    padding: 12px;
+  }
+}
+
+@keyframes pdpFadeIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pdp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pdp-nav-btn {
+  background: #fff0ef;
+  border: none;
+  color: #da2d34;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pdp-nav-btn:hover {
+  background: #ffe1df;
+  transform: scale(1.05);
+}
+
+.pdp-month-year {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #281716;
+  text-transform: capitalize;
+}
+
+.pdp-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pdp-grid-day-name {
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #906f6d;
+}
+
+.pdp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.pdp-day {
+  background: transparent;
+  border: none;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #281716;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pdp-day:not(.empty):not(:disabled):hover {
+  background: #fff0ef;
+  color: #da2d34;
+}
+
+.pdp-day:disabled {
+  color: #d1c7c6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pdp-day.empty {
+  cursor: default;
+}
+
+.pdp-day.in-range {
+  background: #fff0ef;
+  color: #da2d34;
+  border-radius: 0;
+}
+
+.pdp-day.start {
+  background: #da2d34 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(218, 45, 52, 0.3);
+}
+
+.pdp-day.start.has-range {
+  border-radius: 50% 0 0 50%;
+  box-shadow: -2px 0 10px rgba(218, 45, 52, 0.2);
+}
+
+.pdp-day.end {
+  background: #da2d34 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 0 50% 50% 0;
+  box-shadow: 2px 0 10px rgba(218, 45, 52, 0.2);
+}
+
+/* Si es start y end a la vez (doble clic en el mismo día) */
+.pdp-day.start.end {
+  border-radius: 50% !important;
+}
+
+.pdp-day.start::after,
+.pdp-day.end::after {
+  background-color: #ffffff;
+}
+
+.pdp-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.pdp-btn-apply {
+  background: #da2d34;
+  color: white;
+  border: none;
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.pdp-btn-apply:hover {
+  opacity: 0.9;
+}
+
+.pdp-btn-apply:active {
+  transform: scale(0.98);
+}
+
+.pdp-day.today {
+  color: #da2d34;
+  font-weight: 700;
+  position: relative;
+}
+
+.pdp-day.today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  background-color: #da2d34;
+  border-radius: 50%;
+}
+
+

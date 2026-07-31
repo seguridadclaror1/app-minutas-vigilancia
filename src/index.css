@@ -1,0 +1,209 @@
+/* ============================================================
+   Minutas de Vigilancia – Global CSS
+   Design Tokens from Stitch (project #13249488407441150993)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ─── Reset & Base ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* ── Colors (Material 3 from Stitch) ── */
+  --color-primary: #da2d34;
+  --color-primary-container: #da2d34;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #fff8f7;
+  --color-secondary: #5d5f5f;
+  --color-secondary-container: #dfe0e0;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #616363;
+  --color-tertiary: #006377;
+  --color-tertiary-container: #007e96;
+  --color-background: #fff8f7;
+  --color-surface: #fff8f7;
+  --color-surface-container: #ffe9e7;
+  --color-surface-container-low: #fff0ef;
+  --color-surface-container-high: #ffe1df;
+  --color-surface-container-highest: #fadcd9;
+  --color-surface-bright: #fff8f7;
+  --color-surface-dim: #f1d3d1;
+  --color-surface-variant: #fadcd9;
+  --color-on-surface: #281716;
+  --color-on-surface-variant: #5c403e;
+  --color-outline: #906f6d;
+  --color-outline-variant: #e4bdba;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+  --color-inverse-surface: #3e2c2a;
+  --color-inverse-on-surface: #ffedeb;
+  --color-inverse-primary: #ffb3ae;
+  --color-surface-tint: #da2d34;
+
+  /* ── Typography ── */
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ── Font sizes ── */
+  --text-display: 700 30px/38px var(--font-family);
+  --text-headline-lg: 600 24px/32px var(--font-family);
+  --text-headline-md: 600 20px/28px var(--font-family);
+  --text-body-lg: 400 18px/28px var(--font-family);
+  --text-body-md: 400 16px/24px var(--font-family);
+  --text-label-md: 500 14px/20px var(--font-family);
+  --text-label-sm: 600 12px/16px var(--font-family);
+
+  /* ── Spacing ── */
+  --space-unit: 4px;
+  --space-gutter: 12px;
+  --space-margin: 16px;
+  --space-stack: 20px;
+  --touch-target: 48px;
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-focus: 0 0 0 2px white, 0 0 0 4px var(--color-primary);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-family);
+  font: var(--text-body-md);
+  color: var(--color-on-surface);
+  background-color: #f4f4f5;
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Animations ───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
+/* ─── Focus Visible ────────────────────────────────────────── */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Selection ────────────────────────────────────────────── */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}

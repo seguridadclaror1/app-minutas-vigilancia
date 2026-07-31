@@ -1,0 +1,292 @@
+﻿Prompt
+ para diseñar y desarrollar una aplicación web móvil para minutas de vigilancia
+Actúa como un 
+Arquitecto de Software Senior, Diseñador UX/UI especializado en aplicaciones móviles y Desarrollador Full Stack experto en 
+Supabase
+.
+Quiero que me ayudes a crear una 
+aplicación web responsive (Mobile First)
+ diseñada principalmente para ser utilizada desde teléfonos celulares. El objetivo es reemplazar las minutas físicas utilizadas por el personal de vigilancia mediante una aplicación sencilla, intuitiva y moderna.
+IMPORTANTE
+No comiences a programar inmediatamente.
+Quiero que el desarrollo se realice por etapas y que en cada etapa espere mi aprobación antes de continuar.
+Debes seguir exactamente el siguiente flujo de trabajo.
+ETAPA 1 - Análisis del proyecto
+Primero analiza completamente mi idea.
+Quiero que me entregues un documento técnico detallado explicando:
+Objetivo del proyecto
+Describe cuál es el propósito de la aplicación.
+Usuarios
+Explica quiénes utilizarán la aplicación.
+Ejemplo:
+Guardas de seguridad
+Supervisores
+Administradores
+Describe qué podrá hacer cada uno.
+Flujo completo de la aplicación
+Explícame paso a paso cómo funcionará la aplicación desde que el usuario ingresa hasta que registra una minuta.
+Quiero que el flujo sea claro y fácil de entender.
+Arquitectura propuesta
+Explícame:
+Frontend
+Backend
+Base de datos
+Autenticación
+Almacenamiento de imágenes
+Seguridad
+Debes considerar que utilizaré 
+Supabase
+ como 
+backend
+.
+Tecnologías recomendadas
+Recomienda las mejores tecnologías para este proyecto.
+Por ejemplo:
+React
+Next.js
+Vite
+TypeScript
+Tailwind
+ CSS
+Supabase
+Supabase
+ Storage
+React
+ Hook Form
+Zod
+TanStack
+ Query
+Explica por qué eliges cada una.
+Arquitectura de carpetas
+Muéstrame cómo organizarías todo el proyecto.
+Buenas prácticas
+Indica todas las buenas prácticas que implementarás para que el proyecto sea escalable.
+ETAPA 2 - Diseño UX/UI
+NO programes todavía.
+Quiero que primero diseñes completamente la experiencia del usuario.
+Describe detalladamente:
+Paleta de colores
+Debe utilizar únicamente colores corporativos.
+Color principal:
+Rojo:
+#da2d34
+Color secundario:
+Blanco
+Puedes usar únicamente tonos neutros como gris muy claro para fondos o bordes.
+No quiero colores llamativos diferentes al rojo corporativo.
+Estilo visual
+Quiero un diseño:
+Minimalista
+Moderno
+Elegante
+Muy limpio
+Fácil de entender
+Profesional
+Mobile First
+Debe parecer una aplicación empresarial.
+No quiero pantallas saturadas.
+Debe existir mucho espacio entre componentes.
+Los botones deben ser grandes para facilitar el uso desde celulares.
+Tipografía
+Sugiere una tipografía moderna.
+Explica por qué.
+Componentes
+Diseña visualmente:
+Botones
+Inputs
+Dropdowns
+Cards
+Navbar
+Iconos
+Alertas
+Mensajes
+Confirmaciones
+Loader
+Todo debe seguir el mismo estilo visual.
+Pantallas necesarias
+Diseña todas las pantallas que tendrá la aplicación.
+Como mínimo:
+Login
+Debe contener:
+Usuario (Cédula)
+Contraseña
+Botón Ingresar
+Diseño limpio.
+Pantalla de Bienvenida
+Debe contener:
+Mensaje de bienvenida.
+Botón principal:
+Agregar Minuta
+No quiero más elementos innecesarios.
+Pantalla Nueva Minuta
+Debe contener exactamente este formulario:
+Campo 1
+Fecha y hora actual
+Características:
+Automática
+No editable
+Solo lectura
+Debe registrar automáticamente:
+Fecha
+Hora
+Minuto
+Campo 2
+Sede
+Tipo:
+Lista desplegable.
+Debe tener:
+Buscador.
+El usuario podrá escribir para filtrar rápidamente.
+Los valores provendrán desde 
+Supabase
+.
+Campo 3
+Tipo de novedad
+Lista desplegable.
+Debe contener exactamente cuatro opciones.
+Por ahora déjalas como:
+Opción 1
+Opción 2
+Opción 3
+Opción 4
+Más adelante las 
+modificaré,
+ pero deben venir 
+desde 
+Supabase
+.
+Campo 4
+Evidencia
+Permitir:
+Tomar fotografías desde la cámara
+Seleccionar imágenes desde la galería
+Agregar múltiples fotografías
+Mostrar vista previa
+Permitir eliminar fotografías antes de guardar
+Las imágenes deberán almacenarse posteriormente en 
+Supabase
+ Storage.
+Campo 5
+Descripción de la novedad
+Campo tipo 
+textarea
+.
+Debe permitir escribir textos largos.
+Debe ser cómodo escribir desde celular.
+Botón Guardar
+Grande.
+Rojo corporativo.
+Con confirmación visual al guardar.
+ETAPA 3 - Propuesta visual
+NO programes.
+Quiero que generes imágenes conceptuales (mockups) mostrando cómo se vería la aplicación.
+Necesito imágenes de:
+Login
+Pantalla principal
+Formulario de minuta
+Vista móvil completa
+Paleta de colores
+Componentes
+Quiero ver el diseño antes de programar.
+Después de mostrar los mockups debes preguntarme qué cambios deseo realizar.
+No avances hasta que apruebe el diseño.
+ETAPA 4 - Mejoras
+Una vez vea las imágenes quiero poder modificar cualquier cosa.
+Por ejemplo:
+Colores
+Tamaños
+Distribución
+Botones
+Iconos
+Formularios
+Espaciados
+Debes actualizar el diseño hasta que quede exactamente como lo deseo.
+ETAPA 5 - Diseño de Base de Datos
+Solo cuando apruebe el diseño.
+Diseña completamente la base de datos en 
+Supabase
+.
+Necesito:
+Modelo entidad-relación
+Explicación de cada tabla
+Relaciones
+Llaves primarias
+Llaves foráneas
+Índices
+Restricciones
+Políticas de seguridad (Row Level Security)
+Roles
+Permisos
+Posteriormente genera todo el SQL listo para ejecutar en 
+Supabase
+.
+Incluye tablas para:
+Usuarios
+id
+cedula
+nombre
+contraseña (gestionada mediante autenticación segura)
+rol
+estado
+fecha_creacion
+Sedes
+id
+nombre
+Tipos de novedad
+id
+nombre
+Minutas
+id
+usuario
+sede
+tipo_novedad
+descripcion
+fecha_hora
+fecha_creacion
+Evidencias
+id
+minuta
+url_imagen
+fecha
+Si consideras necesarias tablas adicionales, agrégalas y explica su propósito.
+ETAPA 6 - Desarrollo
+Solo cuando yo escriba explícitamente:
+"APROBADO, COMIENZA EL DESARROLLO"
+Podrás comenzar a programar.
+Primero desarrolla:
+Frontend
+.
+Luego:
+Backend
+.
+Luego:
+Integración con 
+Supabase
+.
+Finalmente:
+Autenticación.
+Después:
+Carga de imágenes.
+Y
+ por último:
+Pruebas.
+No desarrolles todo de una sola vez.
+Hazlo por módulos.
+Requisitos generales
+La aplicación debe cumplir con los siguientes principios:
+Mobile First.
+Responsive.
+Muy rápida.
+Intuitiva.
+Minimalista.
+Fácil de usar.
+Código limpio.
+Componentes reutilizables.
+Buenas prácticas de programación.
+Accesibilidad.
+Seguridad.
+Escalabilidad.
+Optimizada para crecimiento futuro.
+Cada decisión técnica debe ser explicada antes de implementarla.
+No asumas requisitos; si tienes dudas, pregúntamelas antes de avanzar.
+No pases a la siguiente etapa hasta que yo apruebe la anterior.

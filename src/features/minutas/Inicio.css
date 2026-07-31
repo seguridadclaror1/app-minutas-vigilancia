@@ -1,0 +1,241 @@
+/* ============================================================
+   Inicio – Diseño fiel a Stitch "Inicio - Claro (Corregido)"
+   ============================================================ */
+
+.inicio-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background-color: #fff8f7;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ─── Top App Bar ──────────────────────────────────────────── */
+.inicio-topbar {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  background: #fff8f7;
+  border-bottom: 1px solid #e4bdba;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 64px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.topbar-brand {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  color: #281716;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-admin {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: #ffe1df;
+  border: 1px solid #e4bdba;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #5c403e;
+  transition: all 0.15s ease;
+}
+
+.topbar-admin:hover {
+  background: #fadcd9;
+  border-color: #906f6d;
+  color: #281716;
+}
+
+.topbar-profile {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: #ffe1df;
+  border: 1px solid #e4bdba;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  color: #5c403e;
+  transition: all 0.15s ease;
+}
+
+.topbar-profile:hover {
+  background: #fadcd9;
+  border-color: #906f6d;
+}
+
+/* ─── Main Content (Centered) ──────────────────────────────── */
+.inicio-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px 48px;
+}
+
+/* ─── Welcome Section (Centered) ───────────────────────────── */
+.welcome-section {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.welcome-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 9999px;
+  background: rgba(218, 45, 52, 0.05);
+  color: #da2d34;
+  margin-bottom: 32px;
+}
+
+.welcome-icon-wrapper svg {
+  width: 40px;
+  height: 40px;
+}
+
+.welcome-title {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 38px;
+  letter-spacing: -0.02em;
+  color: #281716;
+  margin-bottom: 12px;
+}
+
+.welcome-subtitle {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+  color: #5c403e;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ─── Primary Action Button ────────────────────────────────── */
+.primary-action-area {
+  width: 100%;
+  max-width: 384px;
+  padding: 0 16px;
+}
+
+.agregar-minuta-btn {
+  width: 100%;
+  height: 84px;
+  background: #da2d34;
+  color: #fff8f7;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 25px -5px rgba(218, 45, 52, 0.15);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.agregar-minuta-btn:active {
+  transform: scale(0.95);
+}
+
+.agregar-minuta-btn:hover {
+  box-shadow: 0 14px 30px -5px rgba(218, 45, 52, 0.25);
+}
+
+.btn-add-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.btn-add-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.agregar-minuta-btn span.btn-label {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Status Info ──────────────────────────────────────────── */
+.status-info {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffe1df;
+  color: #5c403e;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: 1px solid #e4bdba;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.01em;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #22c55e;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.minutas-count-pill {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #906f6d;
+}

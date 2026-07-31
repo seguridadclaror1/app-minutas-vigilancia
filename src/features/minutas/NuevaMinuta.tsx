@@ -1,0 +1,286 @@
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Clock, Camera, X, Loader2, Save } from 'lucide-react';
+import { supabase } from '../../config/supabase';
+import { useAuth } from '../../hooks/useAuth';
+import PremiumSelect from '../../components/PremiumSelect';
+import { ConfirmacionModal } from './ConfirmacionModal';
+import './NuevaMinuta.css';
+import type { Sede, TipoNovedad } from '../../types/database';
+
+export default function NuevaMinuta() {
+  const navigate = useNavigate();
+  const { perfil } = useAuth();
+  
+  const [sedes, setSedes] = useState<Sede[]>([]);
+  const [tiposNovedad, setTiposNovedad] = useState<TipoNovedad[]>([]);
+  
+  const [sedeId, setSedeId] = useState('');
+  const [tipoNovedadId, setTipoNovedadId] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [fotos, setFotos] = useState<File[]>([]);
+  const [fotoUrls, setFotoUrls] = useState<string[]>([]);
+  
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showConfirmacion, setShowConfirmacion] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [sedesRes, novedadesRes] = await Promise.all([
+          supabase.from('sedes').select('*').order('nombre'),
+          supabase.from('tipos_novedad').select('*').order('nombre')
+        ]);
+        
+        if (sedesRes.data) setSedes(sedesRes.data as Sede[]);
+        if (novedadesRes.data) setTiposNovedad(novedadesRes.data as TipoNovedad[]);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
+
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setFotos(prev => [...prev, ...newFiles]);
+      
+      const newUrls = newFiles.map(file => URL.createObjectURL(file));
+      setFotoUrls(prev => [...prev, ...newUrls]);
+    }
+  };
+
+  const removeFoto = (index: number) => {
+    URL.revokeObjectURL(fotoUrls[index]);
+    setFotos(prev => prev.filter((_, i) => i !== index));
+    setFotoUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!sedeId || !tipoNovedadId || !descripcion.trim()) {
+      setError('Por favor, complete todos los campos obligatorios.');
+      return;
+    }
+    
+    if (!perfil) {
+      setError('Error de autenticación. Intente iniciar sesión nuevamente.');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // 1. Insertar minuta
+      const { data: minuta, error: minutaError } = await supabase
+        .from('minutas')
+        .insert({
+          usuario_id: perfil.id,
+          sede_id: sedeId,
+          tipo_novedad_id: tipoNovedadId,
+          descripcion: descripcion.trim()
+        })
+        .select()
+        .single();
+        
+      if (minutaError) throw minutaError;
+      if (!minuta) throw new Error('No se pudo crear la minuta');
+
+      // 2. Subir fotos e insertar evidencias
+      if (fotos.length > 0) {
+        const evidenciasToInsert = [];
+        
+        for (const foto of fotos) {
+          const fileExt = foto.name.split('.').pop();
+          const fileName = `${minuta.id}/${crypto.randomUUID()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('evidencias_minutas')
+            .upload(fileName, foto);
+            
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('evidencias_minutas')
+            .getPublicUrl(fileName);
+            
+          evidenciasToInsert.push({
+            minuta_id: minuta.id,
+            url_imagen: publicUrl
+          });
+        }
+        
+        const { error: evidenciaError } = await supabase
+          .from('evidencias')
+          .insert(evidenciasToInsert);
+          
+        if (evidenciaError) throw evidenciaError;
+      }
+      
+      // Éxito, mostrar modal
+      setLoading(false);
+      setShowConfirmacion(true);
+    } catch (err: any) {
+      console.error('Error al guardar:', err);
+      setError('Ocurrió un error al guardar la minuta. Intente nuevamente.');
+      setLoading(false);
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100dvh' }}>
+        <Loader2 className="spin-icon" size={32} color="#da2d34" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="nueva-minuta-page">
+      <header className="minuta-header">
+        <button className="back-btn" onClick={() => navigate(-1)} aria-label="Volver">
+          <ArrowLeft size={24} />
+        </button>
+        <h1>Registrar Novedad</h1>
+      </header>
+
+      <main className="minuta-content animate-fade-in">
+        <form className="minuta-form" onSubmit={handleSubmit}>
+          
+          <div className="datetime-display">
+            <Clock size={20} color="#64748b" />
+            <span>
+              {new Date().toLocaleString('es-CO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Sede <span className="required-asterisk">*</span></label>
+            <PremiumSelect 
+              value={sedeId}
+              onChange={setSedeId}
+              options={sedes.map(sede => ({ value: sede.id, label: sede.nombre }))}
+              placeholder="Seleccione una sede..."
+              searchable={true}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Tipo de Novedad <span className="required-asterisk">*</span></label>
+            <PremiumSelect 
+              value={tipoNovedadId}
+              onChange={setTipoNovedadId}
+              options={tiposNovedad.map(tipo => ({ value: tipo.id, label: tipo.nombre }))}
+              placeholder="Seleccione un tipo..."
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Evidencias Fotográficas <span className="required-asterisk">*</span></label>
+            <div className="fotos-section">
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                multiple 
+                ref={fileInputRef}
+                onChange={handleFotoChange}
+                style={{ display: 'none' }}
+                disabled={loading}
+              />
+              
+              <div className="fotos-grid">
+                {fotoUrls.map((url, index) => (
+                  <div key={index} className="foto-preview">
+                    <img src={url} alt={`Evidencia ${index + 1}`} />
+                    <button 
+                      type="button" 
+                      className="remove-foto-btn"
+                      onClick={() => removeFoto(index)}
+                      disabled={loading}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                
+                <button 
+                  type="button" 
+                  className="add-foto-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                >
+                  <Camera size={24} />
+                  <span>Añadir</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Descripción <span className="required-asterisk">*</span></label>
+            <textarea 
+              className="form-textarea"
+              placeholder="Describa la novedad detalladamente..."
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          {error && (
+            <div className="login-error animate-fade-in" role="alert" style={{ marginTop: 0 }}>
+              <span className="error-icon">!</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            className="submit-btn" 
+            disabled={loading || !sedeId || !tipoNovedadId || !descripcion.trim() || fotos.length === 0}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="spin-icon" size={20} />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Save size={20} />
+                Guardar Registro
+              </>
+            )}
+          </button>
+        </form>
+      </main>
+
+      {showConfirmacion && (
+        <ConfirmacionModal 
+          sedeNombre={sedes.find(s => s.id === sedeId)?.nombre}
+          tipoNovedadNombre={tiposNovedad.find(t => t.id === tipoNovedadId)?.nombre}
+          onClose={() => navigate('/', { replace: true })}
+        />
+      )}
+    </div>
+  );
+}
