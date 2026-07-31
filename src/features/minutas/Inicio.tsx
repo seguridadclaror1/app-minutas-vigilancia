@@ -44,7 +44,7 @@ export default function Inicio() {
       <header className="inicio-topbar">
         <div className="topbar-left">
           <img
-            src="/Logo_Claro-sin fondo.png"
+            src={`${import.meta.env.BASE_URL}Logo_Claro-sin fondo.png`}
             alt="Logo Claro"
             className="topbar-logo"
             width={36}

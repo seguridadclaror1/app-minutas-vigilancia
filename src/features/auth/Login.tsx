@@ -40,7 +40,7 @@ export default function Login() {
         <header className="login-header">
           <div className="login-logo-wrapper">
             <img
-              src="/Logo_Claro-sin fondo.png"
+              src={`${import.meta.env.BASE_URL}Logo_Claro-sin fondo.png`}
               alt="Logo Claro"
               className="login-logo"
               width={96}
