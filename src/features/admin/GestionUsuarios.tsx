@@ -7,6 +7,8 @@ import type { Perfil } from '../../types/database';
 import ModalUsuario from './ModalUsuario';
 import './GestionUsuarios.css';
 
+import { translateError } from '../../utils/errorTranslator';
+
 export default function GestionUsuarios() {
   const navigate = useNavigate();
   const [usuarios, setUsuarios] = useState<Perfil[]>([]);
@@ -89,20 +91,14 @@ export default function GestionUsuarios() {
     try {
       const { error } = await supabaseAdmin.auth.admin.deleteUser(usuarioToDelete.id);
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
       setToastMsg('Usuario eliminado con éxito');
       setTimeout(() => setToastMsg(''), 3000);
       fetchUsuarios();
     } catch (err: any) {
       console.error('Error al eliminar usuario:', err);
-      let errMsg = err.message || 'Error desconocido';
-      if (errMsg.includes('violates foreign key constraint')) {
-        errMsg = 'No se puede eliminar porque este usuario ya tiene minutas registradas.';
-      } else if (errMsg.includes('Auth session missing')) {
-        errMsg = 'No tienes la llave SERVICE_ROLE configurada.';
-      }
-      alert(`No se pudo eliminar el usuario:\n${errMsg}`);
+      alert(`No se pudo eliminar el usuario:\n${translateError(err)}`);
     } finally {
       setIsDeleting(false);
       setUsuarioToDelete(undefined);

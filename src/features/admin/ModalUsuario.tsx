@@ -4,6 +4,7 @@ import PremiumSelect from '../../components/PremiumSelect';
 import type { Perfil } from '../../types/database';
 import { supabaseAdmin } from '../../config/supabaseAdmin';
 import { supabase } from '../../config/supabase';
+import { translateError } from '../../utils/errorTranslator';
 
 interface ModalUsuarioProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
     setError('');
 
     if (!formData.cedula || !formData.nombre || !formData.contrasena) {
-      setError('Por favor completa todos los campos.');
+      setError('Por favor completa todos los campos obligatorios.');
       return;
     }
 
@@ -54,20 +55,14 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
     try {
       if (usuarioEdit) {
         // ACTUALIZAR USUARIO
-
-        // 1. Actualizar contraseña en auth.users (si cambió y si tenemos permisos de admin)
         if (formData.contrasena !== usuarioEdit.contrasena) {
           const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
             usuarioEdit.id,
             { password: formData.contrasena }
           );
-          if (authError) {
-            console.error('Error auth:', authError);
-            throw new Error(`Error de Supabase: ${authError.message}`);
-          }
+          if (authError) throw authError;
         }
 
-        // 2. Actualizar metadatos en perfiles usando el cliente normal
         const { error: updateError } = await supabase
           .from('perfiles')
           .update({
@@ -95,27 +90,13 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
           }
         });
 
-        if (signUpError) {
-          console.error('Error signup:', signUpError);
-          throw new Error(`Error de Supabase al crear: ${signUpError.message}`);
-        }
+        if (signUpError) throw signUpError;
       }
 
       onSaved('Guardado con éxito');
     } catch (err: any) {
-      console.error(err);
-      let errMsg = err.message || 'Ocurrió un error inesperado.';
-
-      // Traducción de errores comunes de Supabase
-      if (errMsg.includes('Password should be at least 6 characters')) {
-        errMsg = 'La contraseña debe tener al menos 6 caracteres.';
-      } else if (errMsg.includes('User already registered')) {
-        errMsg = 'Este usuario ya está registrado en el sistema.';
-      } else if (errMsg.includes('invalid email')) {
-        errMsg = 'El formato del correo/cédula es inválido.';
-      }
-
-      setError(errMsg);
+      console.error('Error usuario:', err);
+      setError(translateError(err));
     } finally {
       setLoading(false);
     }
@@ -145,7 +126,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
                 className="form-input"
                 value={formData.cedula}
                 onChange={e => setFormData({ ...formData, cedula: e.target.value.replace(/\D/g, '') })}
-                disabled={!!usuarioEdit || loading} // La cédula forma el email, mejor no permitir cambiarla si es edición
+                disabled={!!usuarioEdit || loading}
                 placeholder="Ej: 1234567890"
               />
               {usuarioEdit && <small style={{ color: '#64748b' }}>La cédula no se puede modificar tras la creación.</small>}
@@ -159,6 +140,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
                 value={formData.nombre}
                 onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                 disabled={loading}
+                placeholder="Nombre y apellidos"
               />
             </div>
 
@@ -184,6 +166,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
                 value={formData.contrasena}
                 onChange={e => setFormData({ ...formData, contrasena: e.target.value })}
                 disabled={loading}
+                placeholder="Mínimo 6 caracteres"
               />
             </div>
 
