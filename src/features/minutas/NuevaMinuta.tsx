@@ -129,7 +129,10 @@ export default function NuevaMinuta() {
 
           const { error: uploadError } = await supabase.storage
             .from('evidencias_minutas')
-            .upload(fileName, foto);
+            .upload(fileName, foto, {
+              contentType: foto.type || 'image/jpeg',
+              upsert: true
+            });
 
           if (uploadError) {
             console.error('Error subiendo imagen:', uploadError);

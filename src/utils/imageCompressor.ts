@@ -1,6 +1,6 @@
 /**
- * Comprime una imagen en el cliente usando HTML5 Canvas antes de subirla a la nube.
- * Reduce el tamano de archivos gigantes de camara (8-15MB) a ~200-400KB manteniendo la calidad visual.
+ * Comprime una imagen en el cliente usando HTML5 Canvas y ObjectURLs de memoria ultra eficiente.
+ * Evita conversion a base64 (FileReader) para prevenir colapsos por memoria (pantalla en blanco) en celulares.
  */
 export async function compressImage(
   file: File,
@@ -14,67 +14,76 @@ export async function compressImage(
   }
 
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
+    let objectUrl = '';
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch {
+      resolve(file);
+      return;
+    }
 
-        // Calcular la nueva dimension proporcional
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl); // Liberar de inmediato la memoria RAM del navegador movil
+
+      let width = img.width;
+      let height = img.height;
+
+      // Calcular la nueva dimension proporcional
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(file); // Fallback al archivo original en caso de error
-          return;
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
         }
+      }
 
-        // Renderizado suavizado en canvas
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
 
-        // Exportar a blob JPEG comprimido
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              resolve(file);
-              return;
-            }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
 
-            const compressedFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
-            const compressedFile = new File([blob], compressedFileName, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
+      // Renderizado suavizado en canvas
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
 
-            resolve(compressedFile);
-          },
-          'image/jpeg',
-          quality
-        );
-      };
+      // Exportar a blob JPEG comprimido
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
 
-      img.onerror = () => resolve(file);
+          const compressedFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+          const compressedFile = new File([blob], compressedFileName, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+
+          resolve(compressedFile);
+        },
+        'image/jpeg',
+        quality
+      );
     };
 
-    reader.onerror = () => resolve(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+
+    img.src = objectUrl;
   });
 }
