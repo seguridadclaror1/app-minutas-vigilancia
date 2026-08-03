@@ -293,13 +293,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     try {
-      await supabase.auth.updateUser({
-        data: { active_session_token: null }
-      });
+      // Cerrar la sesión únicamente en este dispositivo local (scope: 'local')
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
-      console.error('Error al limpiar token de sesión en signOut:', e);
+      console.error('Error al cerrar sesión local:', e);
     }
-    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
     setPerfil(null);
     setLastActivity(null);
     localStorage.removeItem(SESSION_ACTIVITY_KEY);
@@ -311,7 +311,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function acknowledgeSessionTerminated() {
     setShowSessionTerminatedModal(false);
-    signOut();
+    // Limpiar únicamente el almacenamiento local de este dispositivo sin alterar los metadatos de Supabase ni cerrar la sesión del nuevo dispositivo
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    setSession(null);
+    setUser(null);
+    setPerfil(null);
+    clearSessionTimeout();
   }
 
   function dismissSessionReplacedToast() {
