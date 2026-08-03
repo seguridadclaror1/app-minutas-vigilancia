@@ -7,7 +7,7 @@ interface SessionNoticeToastProps {
   autoHideDuration?: number;
 }
 
-export function SessionNoticeToast({ onClose, autoHideDuration = 7000 }: SessionNoticeToastProps) {
+export function SessionNoticeToast({ onClose, autoHideDuration = 10000 }: SessionNoticeToastProps) {
   useEffect(() => {
     if (autoHideDuration > 0) {
       const timer = setTimeout(() => {
@@ -21,7 +21,7 @@ export function SessionNoticeToast({ onClose, autoHideDuration = 7000 }: Session
     <div className="session-notice-toast-container" id="session-notice-toast">
       <div className="session-notice-toast">
         <div className="session-notice-icon-wrapper">
-          <ShieldCheck size={20} />
+          <ShieldCheck size={22} />
         </div>
         <div className="session-notice-body">
           <span className="session-notice-title">Inicio de Sesión Detectado</span>
@@ -34,7 +34,7 @@ export function SessionNoticeToast({ onClose, autoHideDuration = 7000 }: Session
           onClick={onClose} 
           aria-label="Cerrar notificación"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
       </div>
     </div>

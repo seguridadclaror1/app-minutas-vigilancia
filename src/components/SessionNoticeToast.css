@@ -1,9 +1,9 @@
 .session-notice-toast-container {
   position: fixed;
-  top: 16px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 9998;
+  z-index: 99999;
   width: calc(100% - 32px);
   max-width: 440px;
   pointer-events: none;
@@ -18,8 +18,8 @@
   display: flex;
   align-items: flex-start;
   gap: 0.875rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(218, 45, 52, 0.2);
-  border: 1px solid rgba(228, 189, 186, 0.25);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(218, 45, 52, 0.25);
+  border: 1px solid rgba(228, 189, 186, 0.35);
   animation: toast-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -35,7 +35,7 @@
 }
 
 .session-notice-icon-wrapper {
-  background-color: rgba(218, 45, 52, 0.2);
+  background-color: rgba(218, 45, 52, 0.25);
   color: #ff6b6b;
   width: 2.25rem;
   height: 2.25rem;
