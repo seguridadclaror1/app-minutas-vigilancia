@@ -8,6 +8,7 @@ import GestionUsuarios from './features/admin/GestionUsuarios';
 import ProtectedRoute from './components/ProtectedRoute';
 import { SessionDisplacedModal } from './components/SessionDisplacedModal';
 import { SessionNoticeToast } from './components/SessionNoticeToast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { Loader2 } from 'lucide-react';
 
@@ -63,8 +64,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

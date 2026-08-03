@@ -109,17 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session || !user) return;
 
-    // 1. Asegurar que exista un token de sesión local
+    // 1. Asegurar que exista un token de sesión local si no existe
     let localToken = localStorage.getItem(LOCAL_SESSION_KEY);
     if (!localToken) {
       localToken = generateUUID();
       localStorage.setItem(LOCAL_SESSION_KEY, localToken);
-      supabase.auth.updateUser({
-        data: { active_session_token: localToken }
-      }).catch(console.error);
     }
 
-    // 2. Canal Realtime para comunicación entre dispositivos del mismo usuario
+    // 2. Canal Realtime para comunicación instantánea entre dispositivos del mismo usuario
     const channel = supabase.channel(`user-session-${user.id}`, {
       config: { broadcast: { self: false } }
     });
@@ -133,27 +130,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .subscribe();
 
-    // 3. Verificación periódica (cada 5s) y al reenfocar la ventana
-    const intervalId = setInterval(() => {
-      checkSessionToken();
-    }, 5000);
-
-    const handleFocusOrVisibility = () => {
+    // 3. Verificación solo al regresar la pestaña a primer plano
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         checkSessionToken();
       }
     };
 
-    window.addEventListener('focus', handleFocusOrVisibility);
-    document.addEventListener('visibilitychange', handleFocusOrVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(intervalId);
-      window.removeEventListener('focus', handleFocusOrVisibility);
-      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [session, user]);
+  }, [session, user?.id]);
 
   useEffect(() => {
     if (!session) {
