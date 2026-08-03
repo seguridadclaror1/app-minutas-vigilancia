@@ -124,16 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     channel
-      .on('broadcast', { event: 'LOGIN_NEW_SESSION' }, async (payload) => {
+      .on('broadcast', { event: 'LOGIN_NEW_SESSION' }, (payload) => {
         const currentLocal = localStorage.getItem(LOCAL_SESSION_KEY);
         if (payload.payload?.active_session_token && payload.payload.active_session_token !== currentLocal) {
-          // Responder al nuevo dispositivo confirmando que una sesión previa estaba activa y fue desplazada
-          await channel.send({
-            type: 'broadcast',
-            event: 'SESSION_ACKNOWLEDGED_DISPLACEMENT',
-            payload: { displaced_token: currentLocal }
-          });
-          // Mostrar modal de sesión finalizada en este dispositivo
           setShowSessionTerminatedModal(true);
         }
       })
@@ -241,46 +234,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        const previousToken = data.user.user_metadata?.active_session_token;
         const newToken = crypto.randomUUID();
+
+        // Guardar el nuevo token único de este dispositivo
         localStorage.setItem(LOCAL_SESSION_KEY, newToken);
-        setShowSessionReplacedToast(false);
 
-        // Escuchar si algún dispositivo anterior responde que estaba activo
-        const channel = supabase.channel(`user-session-${data.user.id}`, {
-          config: { broadcast: { self: false } }
-        });
-
-        let displacementDetected = false;
-
-        channel.on('broadcast', { event: 'SESSION_ACKNOWLEDGED_DISPLACEMENT' }, () => {
-          displacementDetected = true;
+        // Si existía un token registrado anteriormente (otro dispositivo estaba activo), mostramos la notificación en el nuevo dispositivo
+        if (previousToken && previousToken !== 'null') {
           setShowSessionReplacedToast(true);
-        });
-
-        channel.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            // Transmitir evento de nuevo inicio de sesión
-            await channel.send({
-              type: 'broadcast',
-              event: 'LOGIN_NEW_SESSION',
-              payload: { active_session_token: newToken }
-            });
-
-            // Esperar 1.2 segundos para ver si otro dispositivo activo responde
-            setTimeout(() => {
-              if (!displacementDetected) {
-                setShowSessionReplacedToast(false);
-              }
-              supabase.removeChannel(channel);
-            }, 1200);
-          }
-        });
+        } else {
+          setShowSessionReplacedToast(false);
+        }
 
         // Actualizar metadatos en Supabase con el nuevo token activo
         await supabase.auth.updateUser({
           data: {
             active_session_token: newToken,
-            last_login_at: new Date().toISOString()
+            last_active_at: new Date().toISOString()
+          }
+        });
+
+        // Notificar en tiempo real al dispositivo anterior para que despliegue el modal
+        const channel = supabase.channel(`user-session-${data.user.id}`, {
+          config: { broadcast: { self: false } }
+        });
+
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'LOGIN_NEW_SESSION',
+              payload: { active_session_token: newToken }
+            });
+            setTimeout(() => {
+              supabase.removeChannel(channel);
+            }, 2000);
           }
         });
       }
@@ -293,17 +282,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     try {
-      // Cerrar la sesión únicamente en este dispositivo local (scope: 'local')
+      // Al cerrar sesión voluntariamente, limpiamos el token registrado en Supabase
+      await supabase.auth.updateUser({
+        data: { active_session_token: null }
+      });
       await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
-      console.error('Error al cerrar sesión local:', e);
+      console.error('Error al cerrar sesión:', e);
     }
+    
+    // Limpieza de almacenamiento local
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('sb-') && key.includes('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    }
+
     setSession(null);
     setUser(null);
     setPerfil(null);
     setLastActivity(null);
-    localStorage.removeItem(SESSION_ACTIVITY_KEY);
-    localStorage.removeItem(LOCAL_SESSION_KEY);
     setShowSessionTerminatedModal(false);
     setShowSessionReplacedToast(false);
     clearSessionTimeout();
@@ -311,10 +311,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function acknowledgeSessionTerminated() {
     setShowSessionTerminatedModal(false);
-    // Limpiar únicamente el almacenamiento local de este dispositivo sin alterar los metadatos de Supabase ni cerrar la sesión del nuevo dispositivo
+    // Limpiar ÚNICAMENTE el cliente local del dispositivo 1, sin tocar Supabase API para no desconectar al dispositivo 2
     localStorage.removeItem(SESSION_ACTIVITY_KEY);
     localStorage.removeItem(LOCAL_SESSION_KEY);
-    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('sb-') && key.includes('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    }
+
     setSession(null);
     setUser(null);
     setPerfil(null);
