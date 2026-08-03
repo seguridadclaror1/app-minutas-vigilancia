@@ -10,6 +10,7 @@ import type { Sede, TipoNovedad } from '../../types/database';
 
 import { generateUUID } from '../../utils/uuid';
 import { compressImage } from '../../utils/imageCompressor';
+import { translateError } from '../../utils/errorTranslator';
 
 export default function NuevaMinuta() {
   const navigate = useNavigate();
@@ -176,8 +177,7 @@ export default function NuevaMinuta() {
       setShowConfirmacion(true);
     } catch (err: any) {
       console.error('Error al guardar:', err);
-      const msg = err?.message || 'Ocurrió un error al guardar la minuta. Intente nuevamente.';
-      setError(msg);
+      setError(translateError(err));
       setLoading(false);
       setUploadStatusText('');
       setUploadProgressPercent(0);

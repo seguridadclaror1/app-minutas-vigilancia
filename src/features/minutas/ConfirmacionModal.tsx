@@ -7,6 +7,28 @@ interface ConfirmacionModalProps {
   tipoNovedadNombre?: string;
 }
 
+function formatFechaHoraSegura(date: Date = new Date()): string {
+  try {
+    return date.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'p.m.' : 'a.m.';
+    hours = hours % 12 || 12;
+    return `${day}/${month}/${year}, ${hours}:${minutes} ${ampm}`;
+  }
+}
+
 export function ConfirmacionModal({ onClose, sedeNombre, tipoNovedadNombre }: ConfirmacionModalProps) {
   return (
     <div className="confirmacion-overlay" id="success-dialog">
@@ -24,14 +46,7 @@ export function ConfirmacionModal({ onClose, sedeNombre, tipoNovedadNombre }: Co
             <div className="detail-item">
               <span className="detail-label">Fecha y Hora</span>
               <span className="detail-value">
-                {new Date().toLocaleString('es-CO', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true
-                })}
+                {formatFechaHoraSegura()}
               </span>
             </div>
             {sedeNombre && (
