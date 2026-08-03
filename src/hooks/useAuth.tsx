@@ -235,18 +235,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        const localTokenBeforeLogin = localStorage.getItem(LOCAL_SESSION_KEY);
         const existingToken = data.user.user_metadata?.active_session_token;
         const newToken = crypto.randomUUID();
 
         // Guardar el nuevo token en el dispositivo actual
         localStorage.setItem(LOCAL_SESSION_KEY, newToken);
 
-        // Si existía un token previo en otro dispositivo, notificamos al nuevo dispositivo (Dispositivo 2)
-        if (existingToken) {
+        // Solo notificar si existía una sesión previa activa de OTRO dispositivo o navegador
+        if (existingToken && existingToken !== localTokenBeforeLogin) {
           setShowSessionReplacedToast(true);
+        } else {
+          setShowSessionReplacedToast(false);
         }
 
-        // Actualizar metadatos en Supabase
+        // Actualizar metadatos en Supabase con el nuevo token activo
         await supabase.auth.updateUser({
           data: {
             active_session_token: newToken,
@@ -254,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        // Transmitir por Realtime para desconectar al instante el dispositivo 1
+        // Transmitir por Realtime para desconectar al instante el dispositivo 1 si estaba abierto
         const channel = supabase.channel(`user-session-${data.user.id}`, {
           config: { broadcast: { self: false } }
         });
@@ -280,12 +283,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    try {
+      // Al cerrar sesión voluntariamente, limpiamos el token activo en los metadatos de Supabase
+      await supabase.auth.updateUser({
+        data: { active_session_token: null }
+      });
+    } catch (e) {
+      console.error('Error al limpiar token de sesión:', e);
+    }
     await supabase.auth.signOut();
     setPerfil(null);
     setLastActivity(null);
     localStorage.removeItem(SESSION_ACTIVITY_KEY_NAME);
     localStorage.removeItem(LOCAL_SESSION_KEY);
     setShowSessionTerminatedModal(false);
+    setShowSessionReplacedToast(false);
     clearSessionTimeout();
   }
 
