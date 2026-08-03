@@ -14,6 +14,7 @@ interface PremiumSelectProps {
   placeholder?: string;
   disabled?: boolean;
   searchable?: boolean;
+  direction?: 'down' | 'up';
 }
 
 export default function PremiumSelect({ 
@@ -22,7 +23,8 @@ export default function PremiumSelect({
   options, 
   placeholder = 'Seleccione...', 
   disabled = false,
-  searchable = false
+  searchable = false,
+  direction = 'down'
 }: PremiumSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,14 +44,6 @@ export default function PremiumSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Removido autofocus automático porque en móviles abre el teclado virtual
-  // y causa que al intentar deslizar se cierre la lista.
-  // useEffect(() => {
-  //   if (isOpen && searchable && searchInputRef.current) {
-  //     searchInputRef.current.focus();
-  //   }
-  // }, [isOpen, searchable]);
 
   const filteredOptions = useMemo(() => {
     if (!searchable || !searchTerm) return options;
@@ -76,7 +70,7 @@ export default function PremiumSelect({
       </button>
 
       {isOpen && (
-        <div className="premium-select-dropdown">
+        <div className={`premium-select-dropdown ${direction === 'up' ? 'direction-up' : ''}`}>
           {searchable && (
             <div className="premium-select-search">
               <Search size={16} className="premium-select-search-icon" />

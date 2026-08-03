@@ -296,6 +296,7 @@ export default function SeguimientoMinutas() {
                   onChange={handlePageSizeChange}
                   options={PAGE_SIZE_OPTIONS}
                   placeholder="10"
+                  direction="up"
                 />
                 <span>filas</span>
               </div>

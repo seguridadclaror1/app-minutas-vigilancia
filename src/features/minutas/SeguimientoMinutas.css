@@ -383,6 +383,8 @@
   padding: 12px 16px;
   border-top: 1px solid #f5e8e7;
   background: #ffffff;
+  position: relative;
+  z-index: 30;
 }
 
 .seg-page-size {
