@@ -33,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [showSessionTerminatedModal, setShowSessionTerminatedModal] = useState(false);
   const [showSessionReplacedToast, setShowSessionReplacedToast] = useState(false);
 
-  const SESSION_ACTIVITY_KEY_NAME = SESSION_ACTIVITY_KEY;
   const INACTIVITY_TIMEOUT_SECONDS = 30 * 60;
   const INACTIVITY_TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
   const timeoutRef = useRef<number | null>(null);
@@ -47,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateActivity = (timestamp = Date.now()) => {
     setLastActivity(timestamp);
-    localStorage.setItem(SESSION_ACTIVITY_KEY_NAME, String(timestamp));
+    localStorage.setItem(SESSION_ACTIVITY_KEY, String(timestamp));
   };
 
   // Función para verificar si la sesión fue superada desde otro dispositivo
@@ -69,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const storedActivity = localStorage.getItem(SESSION_ACTIVITY_KEY_NAME);
+    const storedActivity = localStorage.getItem(SESSION_ACTIVITY_KEY);
     if (storedActivity) {
       const parsed = Number(storedActivity);
       if (!Number.isNaN(parsed)) {
@@ -105,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Suscripción Realtime y monitoreo periódico para sesión única
+  // Suscripción Realtime y monitoreo periódico para sesión única en dispositivo activo
   useEffect(() => {
     if (!session || !user) return;
 
@@ -119,21 +118,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(console.error);
     }
 
-    // 2. Canal Realtime para desconexión instantánea en tiempo real
+    // 2. Canal Realtime para comunicación entre dispositivos del mismo usuario
     const channel = supabase.channel(`user-session-${user.id}`, {
       config: { broadcast: { self: false } }
     });
 
     channel
-      .on('broadcast', { event: 'SESSION_SUPERSEDED' }, (payload) => {
+      .on('broadcast', { event: 'LOGIN_NEW_SESSION' }, async (payload) => {
         const currentLocal = localStorage.getItem(LOCAL_SESSION_KEY);
         if (payload.payload?.active_session_token && payload.payload.active_session_token !== currentLocal) {
+          // Responder al nuevo dispositivo confirmando que una sesión previa estaba activa y fue desplazada
+          await channel.send({
+            type: 'broadcast',
+            event: 'SESSION_ACKNOWLEDGED_DISPLACEMENT',
+            payload: { displaced_token: currentLocal }
+          });
+          // Mostrar modal de sesión finalizada en este dispositivo
           setShowSessionTerminatedModal(true);
         }
       })
       .subscribe();
 
-    // 3. Verificación periódica (cada 5s) y al reenfocar la pestaña/ventana
+    // 3. Verificación periódica (cada 5s) y al reenfocar la ventana
     const intervalId = setInterval(() => {
       checkSessionToken();
     }, 5000);
@@ -166,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activityEvents.forEach((eventName) => document.addEventListener(eventName, handleActivity));
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === SESSION_ACTIVITY_KEY_NAME && event.newValue) {
+      if (event.key === SESSION_ACTIVITY_KEY && event.newValue) {
         const parsed = Number(event.newValue);
         if (!Number.isNaN(parsed)) {
           setLastActivity(parsed);
@@ -235,43 +241,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        const localTokenBeforeLogin = localStorage.getItem(LOCAL_SESSION_KEY);
-        const existingToken = data.user.user_metadata?.active_session_token;
         const newToken = crypto.randomUUID();
-
-        // Guardar el nuevo token en el dispositivo actual
         localStorage.setItem(LOCAL_SESSION_KEY, newToken);
+        setShowSessionReplacedToast(false);
 
-        // Solo notificar si existía una sesión previa activa de OTRO dispositivo o navegador
-        if (existingToken && existingToken !== localTokenBeforeLogin) {
+        // Escuchar si algún dispositivo anterior responde que estaba activo
+        const channel = supabase.channel(`user-session-${data.user.id}`, {
+          config: { broadcast: { self: false } }
+        });
+
+        let displacementDetected = false;
+
+        channel.on('broadcast', { event: 'SESSION_ACKNOWLEDGED_DISPLACEMENT' }, () => {
+          displacementDetected = true;
           setShowSessionReplacedToast(true);
-        } else {
-          setShowSessionReplacedToast(false);
-        }
+        });
+
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Transmitir evento de nuevo inicio de sesión
+            await channel.send({
+              type: 'broadcast',
+              event: 'LOGIN_NEW_SESSION',
+              payload: { active_session_token: newToken }
+            });
+
+            // Esperar 1.2 segundos para ver si otro dispositivo activo responde
+            setTimeout(() => {
+              if (!displacementDetected) {
+                setShowSessionReplacedToast(false);
+              }
+              supabase.removeChannel(channel);
+            }, 1200);
+          }
+        });
 
         // Actualizar metadatos en Supabase con el nuevo token activo
         await supabase.auth.updateUser({
           data: {
             active_session_token: newToken,
             last_login_at: new Date().toISOString()
-          }
-        });
-
-        // Transmitir por Realtime para desconectar al instante el dispositivo 1 si estaba abierto
-        const channel = supabase.channel(`user-session-${data.user.id}`, {
-          config: { broadcast: { self: false } }
-        });
-
-        channel.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channel.send({
-              type: 'broadcast',
-              event: 'SESSION_SUPERSEDED',
-              payload: { active_session_token: newToken }
-            });
-            setTimeout(() => {
-              supabase.removeChannel(channel);
-            }, 1000);
           }
         });
       }
@@ -284,17 +293,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     try {
-      // Al cerrar sesión voluntariamente, limpiamos el token activo en los metadatos de Supabase
       await supabase.auth.updateUser({
         data: { active_session_token: null }
       });
     } catch (e) {
-      console.error('Error al limpiar token de sesión:', e);
+      console.error('Error al limpiar token de sesión en signOut:', e);
     }
     await supabase.auth.signOut();
     setPerfil(null);
     setLastActivity(null);
-    localStorage.removeItem(SESSION_ACTIVITY_KEY_NAME);
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
     localStorage.removeItem(LOCAL_SESSION_KEY);
     setShowSessionTerminatedModal(false);
     setShowSessionReplacedToast(false);
