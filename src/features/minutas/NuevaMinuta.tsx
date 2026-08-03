@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Camera, X, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Clock, Camera, Image, X, Loader2, Save } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import PremiumSelect from '../../components/PremiumSelect';
@@ -26,7 +26,8 @@ export default function NuevaMinuta() {
   const [error, setError] = useState('');
   const [showConfirmacion, setShowConfirmacion] = useState(false);
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -197,11 +198,23 @@ export default function NuevaMinuta() {
           <div className="form-group">
             <label className="form-label">Evidencias Fotográficas <span className="required-asterisk">*</span></label>
             <div className="fotos-section">
+              {/* Input para tomar foto directamente desde la cámara */}
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                ref={cameraInputRef}
+                onChange={handleFotoChange}
+                style={{ display: 'none' }}
+                disabled={loading}
+              />
+
+              {/* Input para seleccionar múltiples imágenes de la galería */}
               <input 
                 type="file" 
                 accept="image/*" 
                 multiple 
-                ref={fileInputRef}
+                ref={galleryInputRef}
                 onChange={handleFotoChange}
                 style={{ display: 'none' }}
                 disabled={loading}
@@ -225,11 +238,23 @@ export default function NuevaMinuta() {
                 <button 
                   type="button" 
                   className="add-foto-btn"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => cameraInputRef.current?.click()}
                   disabled={loading}
+                  title="Tomar foto con la cámara"
                 >
-                  <Camera size={24} />
-                  <span>Añadir</span>
+                  <Camera size={22} />
+                  <span>Cámara</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="add-foto-btn"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={loading}
+                  title="Seleccionar de la galería"
+                >
+                  <Image size={22} />
+                  <span>Galería</span>
                 </button>
               </div>
             </div>
