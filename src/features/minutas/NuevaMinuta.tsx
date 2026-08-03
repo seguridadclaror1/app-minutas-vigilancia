@@ -9,6 +9,7 @@ import './NuevaMinuta.css';
 import type { Sede, TipoNovedad } from '../../types/database';
 
 import { generateUUID } from '../../utils/uuid';
+import { compressImage } from '../../utils/imageCompressor';
 
 export default function NuevaMinuta() {
   const navigate = useNavigate();
@@ -27,6 +28,10 @@ export default function NuevaMinuta() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [showConfirmacion, setShowConfirmacion] = useState(false);
+
+  // Estados de progreso de carga optimizada (Opción 3 UI Premium)
+  const [uploadStatusText, setUploadStatusText] = useState('');
+  const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -82,9 +87,23 @@ export default function NuevaMinuta() {
     }
 
     setLoading(true);
-    
+    setUploadProgressPercent(5);
+    setUploadStatusText('Optimizando fotos...');
+
     try {
-      // 1. Insertar minuta
+      // 1. OPCON 1: Compresión de imágenes en el cliente (HTML5 Canvas)
+      const compressedFiles: File[] = [];
+      for (let i = 0; i < fotos.length; i++) {
+        setUploadStatusText(`Optimizando foto ${i + 1} de ${fotos.length}...`);
+        const compressed = await compressImage(fotos[i]);
+        compressedFiles.push(compressed);
+        setUploadProgressPercent(5 + Math.round(((i + 1) / fotos.length) * 25));
+      }
+
+      // 2. Insertar minuta en la base de datos
+      setUploadStatusText('Creando registro de minuta...');
+      setUploadProgressPercent(35);
+
       const { data: minuta, error: minutaError } = await supabase
         .from('minutas')
         .insert({
@@ -99,42 +118,55 @@ export default function NuevaMinuta() {
       if (minutaError) throw minutaError;
       if (!minuta) throw new Error('No se pudo crear la minuta');
 
-      // 2. Subir fotos e insertar evidencias
-      if (fotos.length > 0) {
-        const evidenciasToInsert = [];
-        
-        for (const foto of fotos) {
+      // 3. OPCION 2: Subida paralela ultra rapida de evidencias (Promise.all)
+      if (compressedFiles.length > 0) {
+        setUploadStatusText(`Subiendo ${compressedFiles.length} evidencias a la nube...`);
+        let completedUploads = 0;
+
+        const uploadPromises = compressedFiles.map(async (foto) => {
           const fileExt = foto.name.split('.').pop() || 'jpg';
           const fileName = `${minuta.id}/${generateUUID()}.${fileExt}`;
-          
+
           const { error: uploadError } = await supabase.storage
             .from('evidencias_minutas')
             .upload(fileName, foto);
-            
+
           if (uploadError) {
             console.error('Error subiendo imagen:', uploadError);
             throw uploadError;
           }
-          
+
           const { data: { publicUrl } } = supabase.storage
             .from('evidencias_minutas')
             .getPublicUrl(fileName);
-            
-          evidenciasToInsert.push({
+
+          completedUploads++;
+          setUploadProgressPercent(35 + Math.round((completedUploads / compressedFiles.length) * 55));
+          setUploadStatusText(`Subiendo evidencias (${completedUploads}/${compressedFiles.length})...`);
+
+          return {
             minuta_id: minuta.id,
             url_imagen: publicUrl
-          });
-        }
-        
+          };
+        });
+
+        const evidenciasToInsert = await Promise.all(uploadPromises);
+
+        setUploadStatusText('Finalizando registro...');
+        setUploadProgressPercent(95);
+
         const { error: evidenciaError } = await supabase
           .from('evidencias')
           .insert(evidenciasToInsert);
-          
+
         if (evidenciaError) {
           console.error('Error al guardar evidencias:', evidenciaError);
           throw evidenciaError;
         }
       }
+
+      setUploadProgressPercent(100);
+      setUploadStatusText('¡Registro completado!');
       
       // Éxito, mostrar modal
       setLoading(false);
@@ -144,6 +176,8 @@ export default function NuevaMinuta() {
       const msg = err?.message || 'Ocurrió un error al guardar la minuta. Intente nuevamente.';
       setError(msg);
       setLoading(false);
+      setUploadStatusText('');
+      setUploadProgressPercent(0);
     }
   };
 
@@ -279,6 +313,25 @@ export default function NuevaMinuta() {
               disabled={loading}
             />
           </div>
+
+          {/* OPCION 3: Indicador de Progreso Premium de Carga */}
+          {loading && (
+            <div className="upload-progress-container animate-fade-in">
+              <div className="upload-progress-header">
+                <div className="upload-progress-status">
+                  <Loader2 className="spin-icon" size={18} color="#da2d34" style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>{uploadStatusText}</span>
+                </div>
+                <span className="upload-progress-percent">{uploadProgressPercent}%</span>
+              </div>
+              <div className="upload-progress-track">
+                <div 
+                  className="upload-progress-bar" 
+                  style={{ width: `${uploadProgressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="login-error animate-fade-in" role="alert" style={{ marginTop: 0 }}>
