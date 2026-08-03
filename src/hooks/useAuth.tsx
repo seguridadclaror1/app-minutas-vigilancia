@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { supabase } from '../config/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Perfil } from '../types/database';
+import { generateUUID } from '../utils/uuid';
 
 interface AuthContextType {
   session: Session | null;
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Asegurar que exista un token de sesión local
     let localToken = localStorage.getItem(LOCAL_SESSION_KEY);
     if (!localToken) {
-      localToken = crypto.randomUUID();
+      localToken = generateUUID();
       localStorage.setItem(LOCAL_SESSION_KEY, localToken);
       supabase.auth.updateUser({
         data: { active_session_token: localToken }
@@ -235,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data.user) {
         const previousToken = data.user.user_metadata?.active_session_token;
-        const newToken = crypto.randomUUID();
+        const newToken = generateUUID();
 
         // Guardar el nuevo token único de este dispositivo
         localStorage.setItem(LOCAL_SESSION_KEY, newToken);

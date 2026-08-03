@@ -8,6 +8,8 @@ import { ConfirmacionModal } from './ConfirmacionModal';
 import './NuevaMinuta.css';
 import type { Sede, TipoNovedad } from '../../types/database';
 
+import { generateUUID } from '../../utils/uuid';
+
 export default function NuevaMinuta() {
   const navigate = useNavigate();
   const { perfil } = useAuth();
@@ -102,14 +104,17 @@ export default function NuevaMinuta() {
         const evidenciasToInsert = [];
         
         for (const foto of fotos) {
-          const fileExt = foto.name.split('.').pop();
-          const fileName = `${minuta.id}/${crypto.randomUUID()}.${fileExt}`;
+          const fileExt = foto.name.split('.').pop() || 'jpg';
+          const fileName = `${minuta.id}/${generateUUID()}.${fileExt}`;
           
           const { error: uploadError } = await supabase.storage
             .from('evidencias_minutas')
             .upload(fileName, foto);
             
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Error subiendo imagen:', uploadError);
+            throw uploadError;
+          }
           
           const { data: { publicUrl } } = supabase.storage
             .from('evidencias_minutas')
@@ -125,7 +130,10 @@ export default function NuevaMinuta() {
           .from('evidencias')
           .insert(evidenciasToInsert);
           
-        if (evidenciaError) throw evidenciaError;
+        if (evidenciaError) {
+          console.error('Error al guardar evidencias:', evidenciaError);
+          throw evidenciaError;
+        }
       }
       
       // Éxito, mostrar modal
@@ -133,7 +141,8 @@ export default function NuevaMinuta() {
       setShowConfirmacion(true);
     } catch (err: any) {
       console.error('Error al guardar:', err);
-      setError('Ocurrió un error al guardar la minuta. Intente nuevamente.');
+      const msg = err?.message || 'Ocurrió un error al guardar la minuta. Intente nuevamente.';
+      setError(msg);
       setLoading(false);
     }
   };

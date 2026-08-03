@@ -9,6 +9,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { SessionDisplacedModal } from './components/SessionDisplacedModal';
 import { SessionNoticeToast } from './components/SessionNoticeToast';
 
+import { Loader2 } from 'lucide-react';
+
 function AppRoutes() {
   const { 
     session, 
@@ -19,7 +21,13 @@ function AppRoutes() {
     dismissSessionReplacedToast
   } = useAuth();
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100dvh', backgroundColor: '#fff8f7' }}>
+        <Loader2 className="spin-icon" size={36} color="#da2d34" style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
 
   return (
     <>
