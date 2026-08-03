@@ -11,9 +11,16 @@ interface AuthContextType {
   loading: boolean;
   signIn: (cedula: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  showSessionTerminatedModal: boolean;
+  acknowledgeSessionTerminated: () => void;
+  showSessionReplacedToast: boolean;
+  dismissSessionReplacedToast: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const LOCAL_SESSION_KEY = 'minutas_session_token';
+const SESSION_ACTIVITY_KEY = 'minutas-last-activity';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,10 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [lastActivity, setLastActivity] = useState<number | null>(null);
 
-  const SESSION_ACTIVITY_KEY = 'minutas-last-activity';
-  const INACTIVITY_TIMEOUT_SECONDS = 30 * 60; // Cambia este valor para pruebas locales.
+  // Estados para notificaciones de control de sesión única
+  const [showSessionTerminatedModal, setShowSessionTerminatedModal] = useState(false);
+  const [showSessionReplacedToast, setShowSessionReplacedToast] = useState(false);
+
+  const SESSION_ACTIVITY_KEY_NAME = SESSION_ACTIVITY_KEY;
+  const INACTIVITY_TIMEOUT_SECONDS = 30 * 60;
   const INACTIVITY_TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
-  // Para producción usa 30 * 60 (30 minutos).
   const timeoutRef = useRef<number | null>(null);
 
   const clearSessionTimeout = () => {
@@ -37,11 +47,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateActivity = (timestamp = Date.now()) => {
     setLastActivity(timestamp);
-    localStorage.setItem(SESSION_ACTIVITY_KEY, String(timestamp));
+    localStorage.setItem(SESSION_ACTIVITY_KEY_NAME, String(timestamp));
+  };
+
+  // Función para verificar si la sesión fue superada desde otro dispositivo
+  const checkSessionToken = async () => {
+    try {
+      const localToken = localStorage.getItem(LOCAL_SESSION_KEY);
+      if (!localToken) return;
+
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (!freshUser) return;
+
+      const remoteToken = freshUser.user_metadata?.active_session_token;
+      if (remoteToken && remoteToken !== localToken) {
+        setShowSessionTerminatedModal(true);
+      }
+    } catch (err) {
+      console.error('Error al verificar token de sesión:', err);
+    }
   };
 
   useEffect(() => {
-    const storedActivity = localStorage.getItem(SESSION_ACTIVITY_KEY);
+    const storedActivity = localStorage.getItem(SESSION_ACTIVITY_KEY_NAME);
     if (storedActivity) {
       const parsed = Number(storedActivity);
       if (!Number.isNaN(parsed)) {
@@ -77,6 +105,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Suscripción Realtime y monitoreo periódico para sesión única
+  useEffect(() => {
+    if (!session || !user) return;
+
+    // 1. Asegurar que exista un token de sesión local
+    let localToken = localStorage.getItem(LOCAL_SESSION_KEY);
+    if (!localToken) {
+      localToken = crypto.randomUUID();
+      localStorage.setItem(LOCAL_SESSION_KEY, localToken);
+      supabase.auth.updateUser({
+        data: { active_session_token: localToken }
+      }).catch(console.error);
+    }
+
+    // 2. Canal Realtime para desconexión instantánea en tiempo real
+    const channel = supabase.channel(`user-session-${user.id}`, {
+      config: { broadcast: { self: false } }
+    });
+
+    channel
+      .on('broadcast', { event: 'SESSION_SUPERSEDED' }, (payload) => {
+        const currentLocal = localStorage.getItem(LOCAL_SESSION_KEY);
+        if (payload.payload?.active_session_token && payload.payload.active_session_token !== currentLocal) {
+          setShowSessionTerminatedModal(true);
+        }
+      })
+      .subscribe();
+
+    // 3. Verificación periódica (cada 5s) y al reenfocar la pestaña/ventana
+    const intervalId = setInterval(() => {
+      checkSessionToken();
+    }, 5000);
+
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkSessionToken();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisibility);
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocusOrVisibility);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
+    };
+  }, [session, user]);
+
   useEffect(() => {
     if (!session) {
       clearSessionTimeout();
@@ -88,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activityEvents.forEach((eventName) => document.addEventListener(eventName, handleActivity));
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === SESSION_ACTIVITY_KEY && event.newValue) {
+      if (event.key === SESSION_ACTIVITY_KEY_NAME && event.newValue) {
         const parsed = Number(event.newValue);
         if (!Number.isNaN(parsed)) {
           setLastActivity(parsed);
@@ -143,9 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(cedula: string, password: string) {
     try {
-      // Usamos el formato cedula@minutas.com como acordado
       const email = `${cedula}@minutas.com`;
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -155,6 +232,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: 'Número de identificación o contraseña incorrecta.' };
         }
         return { error: error.message };
+      }
+
+      if (data.user) {
+        const existingToken = data.user.user_metadata?.active_session_token;
+        const newToken = crypto.randomUUID();
+
+        // Guardar el nuevo token en el dispositivo actual
+        localStorage.setItem(LOCAL_SESSION_KEY, newToken);
+
+        // Si existía un token previo en otro dispositivo, notificamos al nuevo dispositivo (Dispositivo 2)
+        if (existingToken) {
+          setShowSessionReplacedToast(true);
+        }
+
+        // Actualizar metadatos en Supabase
+        await supabase.auth.updateUser({
+          data: {
+            active_session_token: newToken,
+            last_login_at: new Date().toISOString()
+          }
+        });
+
+        // Transmitir por Realtime para desconectar al instante el dispositivo 1
+        const channel = supabase.channel(`user-session-${data.user.id}`, {
+          config: { broadcast: { self: false } }
+        });
+
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.send({
+              type: 'broadcast',
+              event: 'SESSION_SUPERSEDED',
+              payload: { active_session_token: newToken }
+            });
+            setTimeout(() => {
+              supabase.removeChannel(channel);
+            }, 1000);
+          }
+        });
       }
 
       return { error: null };
@@ -167,12 +283,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setPerfil(null);
     setLastActivity(null);
-    localStorage.removeItem(SESSION_ACTIVITY_KEY);
+    localStorage.removeItem(SESSION_ACTIVITY_KEY_NAME);
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    setShowSessionTerminatedModal(false);
     clearSessionTimeout();
   }
 
+  function acknowledgeSessionTerminated() {
+    setShowSessionTerminatedModal(false);
+    signOut();
+  }
+
+  function dismissSessionReplacedToast() {
+    setShowSessionReplacedToast(false);
+  }
+
   return (
-    <AuthContext.Provider value={{ session, user, perfil, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ 
+      session, 
+      user, 
+      perfil, 
+      loading, 
+      signIn, 
+      signOut,
+      showSessionTerminatedModal,
+      acknowledgeSessionTerminated,
+      showSessionReplacedToast,
+      dismissSessionReplacedToast
+    }}>
       {children}
     </AuthContext.Provider>
   );

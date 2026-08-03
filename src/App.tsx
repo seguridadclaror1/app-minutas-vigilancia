@@ -6,31 +6,50 @@ import NuevaMinuta from './features/minutas/NuevaMinuta';
 import SeguimientoMinutas from './features/minutas/SeguimientoMinutas';
 import GestionUsuarios from './features/admin/GestionUsuarios';
 import ProtectedRoute from './components/ProtectedRoute';
+import { SessionDisplacedModal } from './components/SessionDisplacedModal';
+import { SessionNoticeToast } from './components/SessionNoticeToast';
 
 function AppRoutes() {
-  const { session, loading } = useAuth();
+  const { 
+    session, 
+    loading, 
+    showSessionTerminatedModal, 
+    acknowledgeSessionTerminated,
+    showSessionReplacedToast,
+    dismissSessionReplacedToast
+  } = useAuth();
 
-  if (loading) return null; // El loader principal ya se maneja internamente o podríamos poner uno global aquí
+  if (loading) return null;
 
   return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={session ? <Navigate to="/" replace /> : <Login />} 
-      />
-      
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Inicio />} />
-        <Route path="/nueva-minuta" element={<NuevaMinuta />} />
-      </Route>
-      
-      <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
-        <Route path="/admin/usuarios" element={<GestionUsuarios />} />
-        <Route path="/seguimiento" element={<SeguimientoMinutas />} />
-      </Route>
+    <>
+      {showSessionTerminatedModal && (
+        <SessionDisplacedModal onAcknowledge={acknowledgeSessionTerminated} />
+      )}
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      {showSessionReplacedToast && (
+        <SessionNoticeToast onClose={dismissSessionReplacedToast} />
+      )}
+
+      <Routes>
+        <Route 
+          path="/login" 
+          element={session ? <Navigate to="/" replace /> : <Login />} 
+        />
+        
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/nueva-minuta" element={<NuevaMinuta />} />
+        </Route>
+        
+        <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
+          <Route path="/admin/usuarios" element={<GestionUsuarios />} />
+          <Route path="/seguimiento" element={<SeguimientoMinutas />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 
