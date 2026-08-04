@@ -211,7 +211,7 @@ export default function SeguimientoMinutas() {
 
           {/* Tipo de novedad */}
           <div className="seg-filter-group">
-            <label className="seg-filter-label">Tipo de novedad</label>
+            <label className="seg-filter-label">Tipo de anotación</label>
             <PremiumSelect
               value={tipoFiltro}
               onChange={(v) => { setTipoFiltro(v); setCurrentPage(1); }}
@@ -367,7 +367,7 @@ export default function SeguimientoMinutas() {
                   <span className="seg-detail-value">{minutaDetalle.sedes?.nombre ?? '—'}</span>
                 </div>
                 <div className="seg-detail-item">
-                  <span className="seg-detail-label">Tipo de novedad</span>
+                  <span className="seg-detail-label">Tipo de anotación</span>
                   <span className="seg-detail-value">
                     <span className="novedad-badge">{minutaDetalle.tipos_novedad?.nombre ?? '—'}</span>
                   </span>
