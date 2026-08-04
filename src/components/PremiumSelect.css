@@ -167,7 +167,7 @@
 @keyframes dropdownFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale0.98;
+    transform: translateY(-8px) scale(0.98);
   }
   to {
     opacity: 1;

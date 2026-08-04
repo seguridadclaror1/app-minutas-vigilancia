@@ -15,16 +15,16 @@ import { translateError } from '../../utils/errorTranslator';
 export default function NuevaMinuta() {
   const navigate = useNavigate();
   const { perfil } = useAuth();
-  
+
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [tiposNovedad, setTiposNovedad] = useState<TipoNovedad[]>([]);
-  
+
   const [sedeId, setSedeId] = useState('');
   const [tipoNovedadId, setTipoNovedadId] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [fotos, setFotos] = useState<File[]>([]);
   const [fotoUrls, setFotoUrls] = useState<string[]>([]);
-  
+
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,7 +33,7 @@ export default function NuevaMinuta() {
   // Estados de progreso de carga optimizada (Opción 3 UI Premium)
   const [uploadStatusText, setUploadStatusText] = useState('');
   const [uploadProgressPercent, setUploadProgressPercent] = useState(0);
-  
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +44,7 @@ export default function NuevaMinuta() {
           supabase.from('sedes').select('*').order('nombre'),
           supabase.from('tipos_novedad').select('*').order('nombre')
         ]);
-        
+
         if (sedesRes.data) setSedes(sedesRes.data as Sede[]);
         if (novedadesRes.data) setTiposNovedad(novedadesRes.data as TipoNovedad[]);
       } catch (err) {
@@ -53,7 +53,7 @@ export default function NuevaMinuta() {
         setInitialLoading(false);
       }
     }
-    
+
     fetchData();
   }, []);
 
@@ -61,7 +61,7 @@ export default function NuevaMinuta() {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setFotos(prev => [...prev, ...newFiles]);
-      
+
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
       setFotoUrls(prev => [...prev, ...newUrls]);
     }
@@ -76,12 +76,12 @@ export default function NuevaMinuta() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!sedeId || !tipoNovedadId || !descripcion.trim()) {
       setError('Por favor, complete todos los campos obligatorios.');
       return;
     }
-    
+
     if (!perfil) {
       setError('Error de autenticación. Intente iniciar sesión nuevamente.');
       return;
@@ -92,41 +92,27 @@ export default function NuevaMinuta() {
     setUploadStatusText('Optimizando fotos...');
 
     try {
-      // 1. OPCON 1: Compresión de imágenes en el cliente (HTML5 Canvas)
+      // 1. OPCION 1: Compresión de imágenes en el cliente (HTML5 Canvas)
       const compressedFiles: File[] = [];
       for (let i = 0; i < fotos.length; i++) {
         setUploadStatusText(`Optimizando foto ${i + 1} de ${fotos.length}...`);
         const compressed = await compressImage(fotos[i]);
         compressedFiles.push(compressed);
-        setUploadProgressPercent(5 + Math.round(((i + 1) / fotos.length) * 25));
+        setUploadProgressPercent(5 + Math.round(((i + 1) / fotos.length) * 20));
       }
 
-      // 2. Insertar minuta en la base de datos
-      setUploadStatusText('Creando registro de minuta...');
-      setUploadProgressPercent(35);
+      // Generar el ID de la minuta por adelantado para usarlo en las rutas de las fotos
+      const minutaId = generateUUID();
+      let evidenciasToInsert: any[] = [];
 
-      const { data: minuta, error: minutaError } = await supabase
-        .from('minutas')
-        .insert({
-          usuario_id: perfil.id,
-          sede_id: sedeId,
-          tipo_novedad_id: tipoNovedadId,
-          descripcion: descripcion.trim()
-        })
-        .select()
-        .single();
-        
-      if (minutaError) throw minutaError;
-      if (!minuta) throw new Error('No se pudo crear la minuta');
-
-      // 3. OPCION 2: Subida paralela ultra rapida de evidencias (Promise.all)
+      // 2. OPCION 2: Subida paralela ultra rápida de evidencias ANTES de guardar en BD
       if (compressedFiles.length > 0) {
         setUploadStatusText(`Subiendo ${compressedFiles.length} evidencias a la nube...`);
         let completedUploads = 0;
 
         const uploadPromises = compressedFiles.map(async (foto) => {
           const fileExt = foto.name.split('.').pop() || 'jpg';
-          const fileName = `${minuta.id}/${generateUUID()}.${fileExt}`;
+          const fileName = `${minutaId}/${generateUUID()}.${fileExt}`;
 
           const { error: uploadError } = await supabase.storage
             .from('evidencias_minutas')
@@ -145,17 +131,37 @@ export default function NuevaMinuta() {
             .getPublicUrl(fileName);
 
           completedUploads++;
-          setUploadProgressPercent(35 + Math.round((completedUploads / compressedFiles.length) * 55));
+          setUploadProgressPercent(25 + Math.round((completedUploads / compressedFiles.length) * 60));
           setUploadStatusText(`Subiendo evidencias (${completedUploads}/${compressedFiles.length})...`);
 
           return {
-            minuta_id: minuta.id,
+            minuta_id: minutaId,
             url_imagen: publicUrl
           };
         });
 
-        const evidenciasToInsert = await Promise.all(uploadPromises);
+        // Esperar a que TODAS las fotos se suban correctamente.
+        // Si una falla por mala conexión, el error se captura y no se guarda nada en BD.
+        evidenciasToInsert = await Promise.all(uploadPromises);
+      }
 
+      // 3. Insertar minuta y evidencias en la base de datos (SOLO si las fotos se subieron con éxito)
+      setUploadStatusText('Guardando registro de minuta...');
+      setUploadProgressPercent(90);
+
+      const { error: minutaError } = await supabase
+        .from('minutas')
+        .insert({
+          id: minutaId,
+          usuario_id: perfil.id,
+          sede_id: sedeId,
+          tipo_novedad_id: tipoNovedadId,
+          descripcion: descripcion.trim()
+        });
+
+      if (minutaError) throw minutaError;
+
+      if (evidenciasToInsert.length > 0) {
         setUploadStatusText('Finalizando registro...');
         setUploadProgressPercent(95);
 
@@ -164,6 +170,8 @@ export default function NuevaMinuta() {
           .insert(evidenciasToInsert);
 
         if (evidenciaError) {
+          // Intentar revertir la minuta si falla la evidencia por alguna razón extrema
+          await supabase.from('minutas').delete().eq('id', minutaId);
           console.error('Error al guardar evidencias:', evidenciaError);
           throw evidenciaError;
         }
@@ -171,7 +179,7 @@ export default function NuevaMinuta() {
 
       setUploadProgressPercent(100);
       setUploadStatusText('¡Registro completado!');
-      
+
       // Éxito, mostrar modal
       setLoading(false);
       setShowConfirmacion(true);
@@ -198,12 +206,12 @@ export default function NuevaMinuta() {
         <button className="back-btn" onClick={() => navigate(-1)} aria-label="Volver">
           <ArrowLeft size={24} />
         </button>
-        <h1>Registrar Novedad</h1>
+        <h1>Registrar Anotación</h1>
       </header>
 
       <main className="minuta-content animate-fade-in">
         <form className="minuta-form" onSubmit={handleSubmit}>
-          
+
           <div className="datetime-display">
             <Clock size={20} color="#64748b" />
             <span>
@@ -220,7 +228,7 @@ export default function NuevaMinuta() {
 
           <div className="form-group">
             <label className="form-label">Sede <span className="required-asterisk">*</span></label>
-            <PremiumSelect 
+            <PremiumSelect
               value={sedeId}
               onChange={setSedeId}
               options={sedes.map(sede => ({ value: sede.id, label: sede.nombre }))}
@@ -232,7 +240,7 @@ export default function NuevaMinuta() {
 
           <div className="form-group">
             <label className="form-label">Tipo de Anotación <span className="required-asterisk">*</span></label>
-            <PremiumSelect 
+            <PremiumSelect
               value={tipoNovedadId}
               onChange={setTipoNovedadId}
               options={tiposNovedad.map(tipo => ({ value: tipo.id, label: tipo.nombre }))}
@@ -245,9 +253,9 @@ export default function NuevaMinuta() {
             <label className="form-label">Evidencias Fotográficas <span className="required-asterisk">*</span></label>
             <div className="fotos-section">
               {/* Input para tomar foto directamente desde la cámara */}
-              <input 
-                type="file" 
-                accept="image/*" 
+              <input
+                type="file"
+                accept="image/*"
                 capture="environment"
                 ref={cameraInputRef}
                 onChange={handleFotoChange}
@@ -256,22 +264,22 @@ export default function NuevaMinuta() {
               />
 
               {/* Input para seleccionar múltiples imágenes de la galería */}
-              <input 
-                type="file" 
-                accept="image/*" 
-                multiple 
+              <input
+                type="file"
+                accept="image/*"
+                multiple
                 ref={galleryInputRef}
                 onChange={handleFotoChange}
                 style={{ display: 'none' }}
                 disabled={loading}
               />
-              
+
               <div className="fotos-grid">
                 {fotoUrls.map((url, index) => (
                   <div key={index} className="foto-preview">
                     <img src={url} alt={`Evidencia ${index + 1}`} />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="remove-foto-btn"
                       onClick={() => removeFoto(index)}
                       disabled={loading}
@@ -280,9 +288,9 @@ export default function NuevaMinuta() {
                     </button>
                   </div>
                 ))}
-                
-                <button 
-                  type="button" 
+
+                <button
+                  type="button"
                   className="add-foto-btn"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={loading}
@@ -292,8 +300,8 @@ export default function NuevaMinuta() {
                   <span>Cámara</span>
                 </button>
 
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="add-foto-btn"
                   onClick={() => galleryInputRef.current?.click()}
                   disabled={loading}
@@ -308,7 +316,7 @@ export default function NuevaMinuta() {
 
           <div className="form-group">
             <label className="form-label">Descripción <span className="required-asterisk">*</span></label>
-            <textarea 
+            <textarea
               className="form-textarea"
               placeholder="Describa la novedad detalladamente..."
               value={descripcion}
@@ -328,8 +336,8 @@ export default function NuevaMinuta() {
                 <span className="upload-progress-percent">{uploadProgressPercent}%</span>
               </div>
               <div className="upload-progress-track">
-                <div 
-                  className="upload-progress-bar" 
+                <div
+                  className="upload-progress-bar"
                   style={{ width: `${uploadProgressPercent}%` }}
                 />
               </div>
@@ -343,9 +351,9 @@ export default function NuevaMinuta() {
             </div>
           )}
 
-          <button 
-            type="submit" 
-            className="submit-btn" 
+          <button
+            type="submit"
+            className="submit-btn"
             disabled={loading || !sedeId || !tipoNovedadId || !descripcion.trim() || fotos.length === 0}
           >
             {loading ? (
@@ -364,7 +372,7 @@ export default function NuevaMinuta() {
       </main>
 
       {showConfirmacion && (
-        <ConfirmacionModal 
+        <ConfirmacionModal
           sedeNombre={sedes.find(s => s.id === sedeId)?.nombre}
           tipoNovedadNombre={tiposNovedad.find(t => t.id === tipoNovedadId)?.nombre}
           onClose={() => navigate('/', { replace: true })}

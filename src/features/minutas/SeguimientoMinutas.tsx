@@ -17,14 +17,6 @@ interface DetalleMinuta extends MinutaConRelaciones {
   evidencias: Evidencia[];
 }
 
-const PAGE_SIZE_OPTIONS = [
-  { value: '5',   label: '5' },
-  { value: '10',  label: '10' },
-  { value: '20',  label: '20' },
-  { value: '50',  label: '50' },
-  { value: '100', label: '100' },
-];
-
 export default function SeguimientoMinutas() {
   const navigate = useNavigate();
 
@@ -291,13 +283,17 @@ export default function SeguimientoMinutas() {
               {/* Selector de filas */}
               <div className="seg-page-size">
                 <span>Mostrar</span>
-                <PremiumSelect
-                  value={String(pageSize)}
-                  onChange={handlePageSizeChange}
-                  options={PAGE_SIZE_OPTIONS}
-                  placeholder="10"
-                  direction="up"
-                />
+                <select 
+                  className="seg-native-select"
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(e.target.value)}
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
                 <span>filas</span>
               </div>
 

@@ -111,7 +111,7 @@ export default function Inicio() {
             <div className="btn-add-icon">
               <Plus size={32} strokeWidth={2} />
             </div>
-            <span className="btn-label">Agregar Minuta</span>
+            <span className="btn-label">Libro de Minutas</span>
           </button>
         </div>
 

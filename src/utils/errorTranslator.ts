@@ -18,7 +18,10 @@ export function translateError(error: any): string {
     rawMessage.includes('user_already_exists') ||
     rawMessage.includes('unique constraint') ||
     rawMessage.includes('perfiles_cedula_key') ||
-    rawMessage.includes('duplicate key')
+    rawMessage.includes('duplicate key') ||
+    rawMessage.includes('already exists') ||
+    rawMessage.includes('email exists') ||
+    rawMessage.includes('already in use')
   ) {
     return 'Este usuario (número de cédula) ya se encuentra registrado en el sistema.';
   }
@@ -82,14 +85,16 @@ export function translateError(error: any): string {
     return 'Error de conexión a internet. Verifique su red e intente de nuevo.';
   }
 
-  // Si el mensaje ya esta formateado en espanol (contiene tildes o palabras en espanol)
+  // Si el error original venía como un string, validamos si está en español
   if (typeof error === 'string') {
-    return error;
+    if (/[áéíóúñ]|Error al|No se pudo|Por favor|Ocurrió|incorrecta|cédula/i.test(error)) {
+      return error;
+    }
+    return 'Ocurrió un error al procesar la solicitud. Por favor intente nuevamente.';
   }
 
   if (error?.message && typeof error.message === 'string') {
-    // Si la cadena de mensaje no parece ser puramente un texto generico en ingles, se devuelve
-    if (/Error al|No se pudo|Por favor|Ocurrió|incorrecta|cédula/i.test(error.message)) {
+    if (/[áéíóúñ]|Error al|No se pudo|Por favor|Ocurrió|incorrecta|cédula/i.test(error.message)) {
       return error.message;
     }
   }
