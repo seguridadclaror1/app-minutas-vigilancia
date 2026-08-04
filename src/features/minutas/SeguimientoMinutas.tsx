@@ -138,7 +138,7 @@ export default function SeguimientoMinutas() {
     new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const formatFechaHora = (iso: string) =>
-    new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 
   // ─── Render ───────────────────────────────────────────────────
   return (
