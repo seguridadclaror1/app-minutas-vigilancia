@@ -31,6 +31,7 @@ create table "Minuta_seguridad".minutas (
     fecha_creacion timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Evidencias asociadas a las minutas (Relación opcional 0..N: una minuta puede tener 0 o más evidencias)
 create table "Minuta_seguridad".evidencias (
     id uuid default gen_random_uuid() primary key,
     minuta_id uuid references "Minuta_seguridad".minutas(id) on delete cascade not null,

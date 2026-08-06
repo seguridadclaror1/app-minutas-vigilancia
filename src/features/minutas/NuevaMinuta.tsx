@@ -251,7 +251,7 @@ export default function NuevaMinuta() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Evidencias Fotográficas <span className="required-asterisk">*</span></label>
+            <label className="form-label">Evidencias Fotográficas</label>
             <div className="fotos-section">
               {/* Input para tomar foto directamente desde la cámara */}
               <input
@@ -355,7 +355,7 @@ export default function NuevaMinuta() {
           <button
             type="submit"
             className="submit-btn"
-            disabled={loading || !sedeId || !tipoNovedadId || !descripcion.trim() || fotos.length === 0}
+            disabled={loading || !sedeId || !tipoNovedadId || !descripcion.trim()}
           >
             {loading ? (
               <>
