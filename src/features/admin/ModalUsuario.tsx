@@ -5,6 +5,7 @@ import type { Perfil } from '../../types/database';
 import { supabaseAdmin } from '../../config/supabaseAdmin';
 import { supabase } from '../../config/supabase';
 import { translateError } from '../../utils/errorTranslator';
+import { toTitleCase } from '../../utils/formatters';
 
 interface ModalUsuarioProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
       return;
     }
 
+    const nombreFormateado = toTitleCase(formData.nombre);
     setLoading(true);
 
     try {
@@ -58,7 +60,10 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
         if (formData.contrasena !== usuarioEdit.contrasena) {
           const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
             usuarioEdit.id,
-            { password: formData.contrasena }
+            { 
+              password: formData.contrasena,
+              user_metadata: { nombre: nombreFormateado, rol: formData.rol } 
+            }
           );
           if (authError) throw authError;
         }
@@ -66,7 +71,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
         const { error: updateError } = await supabase
           .from('perfiles')
           .update({
-            nombre: formData.nombre,
+            nombre: nombreFormateado,
             cedula: formData.cedula,
             rol: formData.rol,
             estado: formData.estado,
@@ -84,7 +89,7 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
           email_confirm: true,
           user_metadata: {
             cedula: formData.cedula,
-            nombre: formData.nombre,
+            nombre: nombreFormateado,
             rol: formData.rol,
             contrasena: formData.contrasena
           }

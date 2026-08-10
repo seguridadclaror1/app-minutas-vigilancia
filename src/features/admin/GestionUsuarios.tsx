@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, Eye, EyeOff, Edit2, Loader2, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, Eye, EyeOff, Edit2, Loader2, ArrowLeft, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabaseAdmin } from '../../config/supabaseAdmin';
 import { supabase } from '../../config/supabase';
 import type { Perfil } from '../../types/database';
 import ModalUsuario from './ModalUsuario';
+import ModalCargaMasiva from './ModalCargaMasiva';
 import './GestionUsuarios.css';
 
 import { translateError } from '../../utils/errorTranslator';
@@ -15,11 +16,16 @@ export default function GestionUsuarios() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Paginación
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
   // Estado para visibilidad de contraseñas individualmente (Set de IDs)
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   
   // Estado del Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCargaMasivaOpen, setIsCargaMasivaOpen] = useState(false);
   const [usuarioToEdit, setUsuarioToEdit] = useState<Perfil | undefined>(undefined);
   
   // Estado para eliminar
@@ -34,7 +40,7 @@ export default function GestionUsuarios() {
       const { data, error } = await supabase
         .from('perfiles')
         .select('*')
-        .order('fecha_creacion', { ascending: false });
+        .order('nombre', { ascending: true }); // Orden alfabético por nombre
         
       if (error) throw error;
       setUsuarios(data as Perfil[]);
@@ -48,6 +54,11 @@ export default function GestionUsuarios() {
   useEffect(() => {
     fetchUsuarios();
   }, []);
+
+  // Reiniciar a la página 1 si cambia la búsqueda o el tamaño de página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords(prev => {
@@ -119,10 +130,22 @@ export default function GestionUsuarios() {
     }
   };
 
-  const filteredUsuarios = usuarios.filter(u => 
-    u.cedula.includes(searchTerm) || 
-    u.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrado local
+  const filteredUsuarios = useMemo(() => {
+    return usuarios.filter(u => 
+      u.cedula.includes(searchTerm) || 
+      u.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [usuarios, searchTerm]);
+
+  // Cálculos de Paginación
+  const totalPages = Math.max(1, Math.ceil(filteredUsuarios.length / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedUsuarios = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredUsuarios.slice(start, start + pageSize);
+  }, [filteredUsuarios, safePage, pageSize]);
 
   return (
     <div className="gestion-page">
@@ -148,10 +171,17 @@ export default function GestionUsuarios() {
             />
           </div>
           
-          <button className="btn-crear" onClick={() => handleEditClick()}>
-            <Plus size={20} />
-            Nuevo Usuario
-          </button>
+          <div className="toolbar-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button className="btn-crear" onClick={() => handleEditClick()}>
+              <Plus size={20} />
+              Nuevo Usuario
+            </button>
+
+            <button className="btn-crear" style={{ backgroundColor: '#ffffff', color: '#da2d34', border: '1px solid #da2d34' }} onClick={() => setIsCargaMasivaOpen(true)}>
+              <FileSpreadsheet size={20} />
+              Carga Masiva (Excel)
+            </button>
+          </div>
         </div>
 
         <div className="usuarios-list">
@@ -164,7 +194,7 @@ export default function GestionUsuarios() {
               No se encontraron usuarios que coincidan con la búsqueda.
             </div>
           ) : (
-            filteredUsuarios.map(u => (
+            paginatedUsuarios.map(u => (
               <div key={u.id} className="usuario-card">
                 <div className="card-header">
                   <div className="card-title">
@@ -229,6 +259,55 @@ export default function GestionUsuarios() {
             ))
           )}
         </div>
+
+        {/* ── Control de Paginación ──────── */}
+        {!loading && filteredUsuarios.length > 0 && (
+          <div className="admin-pagination">
+            <div className="admin-page-size">
+              <span>Mostrar</span>
+              <select 
+                className="admin-native-select"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span>por página</span>
+            </div>
+
+            <div className="admin-page-nav">
+              <button
+                className="admin-page-btn"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <span className="admin-page-info">
+                {safePage} / {totalPages}
+              </span>
+
+              <button
+                className="admin-page-btn"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                aria-label="Página siguiente"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            <span className="admin-total-label">
+              Total: {filteredUsuarios.length} usuarios
+            </span>
+          </div>
+        )}
       </main>
 
       <ModalUsuario 
@@ -236,6 +315,19 @@ export default function GestionUsuarios() {
         onClose={closeModal}
         onSaved={onSaved}
         usuarioEdit={usuarioToEdit}
+      />
+
+      <ModalCargaMasiva
+        isOpen={isCargaMasivaOpen}
+        onClose={() => setIsCargaMasivaOpen(false)}
+        onSaved={(msg) => {
+          setIsCargaMasivaOpen(false);
+          fetchUsuarios();
+          if (msg) {
+            setToastMsg(msg);
+            setTimeout(() => setToastMsg(''), 3000);
+          }
+        }}
       />
 
       {toastMsg && (
