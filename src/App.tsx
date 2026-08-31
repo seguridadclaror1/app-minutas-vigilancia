@@ -5,6 +5,7 @@ import Inicio from './features/minutas/Inicio';
 import NuevaMinuta from './features/minutas/NuevaMinuta';
 import SeguimientoMinutas from './features/minutas/SeguimientoMinutas';
 import GestionUsuarios from './features/admin/GestionUsuarios';
+import Metricas from './features/metricas/Metricas';
 import ProtectedRoute from './components/ProtectedRoute';
 import { SessionDisplacedModal } from './components/SessionDisplacedModal';
 import { SessionNoticeToast } from './components/SessionNoticeToast';
@@ -53,6 +54,10 @@ function AppRoutes() {
         
         <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
           <Route path="/admin/usuarios" element={<GestionUsuarios />} />
+          <Route path="/metricas" element={<Metricas />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['administrador', 'supervisor']} />}>
           <Route path="/seguimiento" element={<SeguimientoMinutas />} />
         </Route>
 

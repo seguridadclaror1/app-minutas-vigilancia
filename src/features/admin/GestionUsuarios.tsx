@@ -1,17 +1,56 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Eye, EyeOff, Edit2, Loader2, ArrowLeft, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  Search, 
+  Plus, 
+  Eye, 
+  EyeOff, 
+  Edit2, 
+  Loader2, 
+  ArrowLeft, 
+  FileSpreadsheet, 
+  ChevronLeft, 
+  ChevronRight,
+  Users,
+  ClipboardList,
+  Home,
+  BarChart3,
+  Power,
+  ChevronDown
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { supabaseAdmin } from '../../config/supabaseAdmin';
 import { supabase } from '../../config/supabase';
 import type { Perfil } from '../../types/database';
 import ModalUsuario from './ModalUsuario';
 import ModalCargaMasiva from './ModalCargaMasiva';
+import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './GestionUsuarios.css';
 
 import { translateError } from '../../utils/errorTranslator';
 
 export default function GestionUsuarios() {
   const navigate = useNavigate();
+  const { perfil, signOut } = useAuth();
+
+  // Estado del Dropdown de Perfil
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Estado del modal de confirmación de salida
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Cerrar dropdown al hacer clic afuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [usuarios, setUsuarios] = useState<Perfil[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,10 +101,13 @@ export default function GestionUsuarios() {
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      return newSet;
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
     });
   };
 
@@ -100,16 +142,38 @@ export default function GestionUsuarios() {
     if (!usuarioToDelete) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(usuarioToDelete.id);
-      if (error) {
-        throw error;
+      // 1. Validar si el usuario tiene minutas registradas antes de intentar borrarlo
+      const { count, error: countError } = await supabase
+        .from('minutas')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', usuarioToDelete.id);
+
+      if (countError) throw countError;
+
+      if (count && count > 0) {
+        alert(`No se puede eliminar a "${usuarioToDelete.nombre}" porque tiene ${count} minuta(s) registrada(s).\n\nPara revocarle el acceso de forma segura, edítalo y cambia su estado a "Inactivo".`);
+        setIsDeleting(false);
+        setUsuarioToDelete(undefined);
+        return;
       }
-      setToastMsg('Usuario eliminado con éxito');
+
+      // Borrar de auth.users usando Supabase Admin API
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(usuarioToDelete.id);
+      if (authError) throw authError;
+
+      // Borrar de la tabla perfiles
+      const { error: dbError } = await supabase
+        .from('perfiles')
+        .delete()
+        .eq('id', usuarioToDelete.id);
+      if (dbError) throw dbError;
+
+      setToastMsg('Usuario eliminado correctamente');
       setTimeout(() => setToastMsg(''), 3000);
       fetchUsuarios();
     } catch (err: any) {
-      console.error('Error al eliminar usuario:', err);
-      alert(`No se pudo eliminar el usuario:\n${translateError(err)}`);
+      console.error('Error deleting user:', err);
+      alert(translateError(err.message || 'Error al eliminar el usuario'));
     } finally {
       setIsDeleting(false);
       setUsuarioToDelete(undefined);
@@ -149,14 +213,98 @@ export default function GestionUsuarios() {
 
   return (
     <div className="gestion-page">
+      {/* ── Header Corporativo Enterprise ─────────────────────────── */}
       <header className="admin-header">
-        <div className="header-title-row">
-          <button className="back-btn" onClick={() => navigate('/')} aria-label="Volver">
-            <ArrowLeft size={24} />
+        <div className="admin-header-left">
+          <button 
+            className="admin-back-pill" 
+            onClick={() => navigate('/')} 
+            aria-label="Volver a Inicio"
+            data-tooltip="Volver a Inicio"
+          >
+            <ArrowLeft size={16} />
+            <span>Inicio</span>
           </button>
-          <h1>Gestión de Usuarios</h1>
+
+          <div className="admin-header-divider" />
+
+          <div className="admin-title-badge">
+            <Users size={18} color="#da2d34" />
+            <h1>Gestión de Usuarios</h1>
+          </div>
+        </div>
+
+        <div className="admin-header-right">
+          {/* Profile Dropdown */}
+          <div className="profile-dropdown-wrapper" ref={profileRef}>
+            <button
+              className={`profile-chip-btn ${isProfileOpen ? 'active' : ''}`}
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              aria-label="Menú de usuario"
+              data-tooltip="Mi Cuenta y Opciones"
+            >
+              <div className="avatar-circle">
+                {perfil?.nombre?.charAt(0) || 'S'}
+              </div>
+              <div className="profile-chip-info">
+                <span className="profile-chip-name">{perfil?.nombre?.split(' ')[0] || 'Samir'}</span>
+                <span className="profile-chip-role">{perfil?.rol || 'Administrador'}</span>
+              </div>
+              <ChevronDown size={14} className={`chip-chevron ${isProfileOpen ? 'rotate' : ''}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="profile-menu-dropdown animate-fade-in">
+                <div className="dropdown-user-header">
+                  <p className="dropdown-user-name">{perfil?.nombre || 'Samir Bolívar'}</p>
+                  <p className="dropdown-user-cedula">CC: {perfil?.cedula || '—'}</p>
+                  <span className="dropdown-user-badge">{perfil?.rol || 'Administrador'}</span>
+                </div>
+                
+                <div className="dropdown-divider" />
+                
+                <div className="dropdown-menu-list">
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/'); }}>
+                    <Home size={16} />
+                    <span>Página de Inicio</span>
+                  </button>
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/seguimiento'); }}>
+                    <ClipboardList size={16} />
+                    <span>Seguimiento de Minutas</span>
+                  </button>
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/metricas'); }}>
+                    <BarChart3 size={16} />
+                    <span>Métricas y Reportes</span>
+                  </button>
+                </div>
+
+                <div className="dropdown-divider" />
+
+                <button 
+                  className="dropdown-item item-danger" 
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    setShowLogoutModal(true);
+                  }}
+                >
+                  <Power size={16} />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* Modal de Confirmación de Cierre de Sesión */}
+      <ModalConfirmarSalida 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          signOut();
+        }} 
+      />
 
       <main className="admin-content animate-fade-in">
         <div className="admin-toolbar">
@@ -202,13 +350,19 @@ export default function GestionUsuarios() {
                     <span className="user-id">CC: {u.cedula}</span>
                   </div>
                   <div className="card-actions" style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-icon edit" onClick={() => handleEditClick(u)} title="Editar">
+                    <button 
+                      className="btn-icon edit" 
+                      onClick={() => handleEditClick(u)} 
+                      aria-label="Editar usuario"
+                      data-tooltip="Editar usuario"
+                    >
                       <Edit2 size={18} />
                     </button>
                     <button 
                       className="btn-icon btn-delete" 
                       onClick={() => setUsuarioToDelete(u)}
-                      title="Eliminar usuario"
+                      aria-label="Eliminar usuario"
+                      data-tooltip="Eliminar usuario"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -232,7 +386,7 @@ export default function GestionUsuarios() {
                       <button 
                         className={`btn-estado ${u.estado}`}
                         onClick={() => handleToggleEstado(u)}
-                        title={`Click para cambiar a ${u.estado === 'activo' ? 'inactivo' : 'activo'}`}
+                        data-tooltip={`Cambiar a ${u.estado === 'activo' ? 'inactivo' : 'activo'}`}
                       >
                         {u.estado === 'activo' ? 'Activo' : 'Inactivo'}
                       </button>
@@ -248,6 +402,7 @@ export default function GestionUsuarios() {
                           className="password-toggle-btn"
                           onClick={() => togglePasswordVisibility(u.id)}
                           aria-label="Ver contraseña"
+                          data-tooltip={visiblePasswords.has(u.id) ? 'Ocultar contraseña' : 'Ver contraseña'}
                         >
                           {visiblePasswords.has(u.id) ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>

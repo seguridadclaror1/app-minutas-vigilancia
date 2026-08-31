@@ -1,10 +1,26 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Eye, X, Loader2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Search, 
+  Eye, 
+  X, 
+  Loader2, 
+  ChevronDown, 
+  ChevronLeft, 
+  ChevronRight,
+  ClipboardList,
+  Users,
+  Power,
+  Home,
+  BarChart3
+} from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import type { Minuta, Sede, TipoNovedad, Evidencia } from '../../types/database';
 import PremiumSelect from '../../components/PremiumSelect';
 import PremiumDatePicker from '../../components/PremiumDatePicker';
+import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './SeguimientoMinutas.css';
 
 interface MinutaConRelaciones extends Omit<Minuta, 'perfiles' | 'sedes' | 'tipos_novedad'> {
@@ -19,6 +35,25 @@ interface DetalleMinuta extends MinutaConRelaciones {
 
 export default function SeguimientoMinutas() {
   const navigate = useNavigate();
+  const { perfil, signOut } = useAuth();
+
+  // Estado del Dropdown de Perfil
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Estado del modal de confirmación de salida
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Cerrar dropdown al hacer clic afuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Datos base
   const [minutas, setMinutas]         = useState<MinutaConRelaciones[]>([]);
@@ -144,26 +179,114 @@ export default function SeguimientoMinutas() {
   return (
     <div className="seg-page">
 
-      {/* ── Header ─────────────────────────── */}
+      {/* ── Header Corporativo Enterprise ─────────────────────────── */}
       <header className="seg-header">
-        <div className="header-title-row">
-          <button className="back-btn" onClick={() => navigate('/')} aria-label="Volver">
-            <ArrowLeft size={24} />
+        <div className="seg-header-left">
+          <button 
+            className="seg-back-pill" 
+            onClick={() => navigate('/')} 
+            aria-label="Volver a Inicio"
+            data-tooltip="Volver a Inicio"
+          >
+            <ArrowLeft size={16} />
+            <span>Inicio</span>
           </button>
-          <h1>Seguimiento de Minutas</h1>
+
+          <div className="seg-header-divider" />
+
+          <div className="seg-title-badge">
+            <ClipboardList size={18} color="#da2d34" />
+            <h1>Seguimiento de Minutas</h1>
+          </div>
         </div>
-        <button
-          className={`seg-filtro-toggle ${hayFiltros ? 'active' : ''}`}
-          onClick={() => setShowFiltros(!showFiltros)}
-          aria-label="Filtros"
-        >
-          <ChevronDown
-            size={20}
-            style={{ transform: showFiltros ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}
-          />
-          {hayFiltros && <span className="filtro-dot" />}
-        </button>
+
+        <div className="seg-header-right">
+          <button
+            className={`seg-btn-filter-pill ${hayFiltros ? 'active' : ''} ${showFiltros ? 'open' : ''}`}
+            onClick={() => setShowFiltros(!showFiltros)}
+            aria-label="Filtros"
+            data-tooltip={showFiltros ? 'Ocultar panel de filtros' : 'Abrir filtros de búsqueda'}
+          >
+            <Search size={15} />
+            <span>Filtros</span>
+            {hayFiltros && <span className="filtro-dot" />}
+            <ChevronDown size={14} className={`filtro-chevron ${showFiltros ? 'rotate' : ''}`} />
+          </button>
+
+          {/* Profile Dropdown */}
+          <div className="profile-dropdown-wrapper" ref={profileRef}>
+            <button
+              className={`profile-chip-btn ${isProfileOpen ? 'active' : ''}`}
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              aria-label="Menú de usuario"
+              data-tooltip="Mi Cuenta y Opciones"
+            >
+              <div className="avatar-circle">
+                {perfil?.nombre?.charAt(0) || 'S'}
+              </div>
+              <div className="profile-chip-info">
+                <span className="profile-chip-name">{perfil?.nombre?.split(' ')[0] || 'Samir'}</span>
+                <span className="profile-chip-role">{perfil?.rol || 'Administrador'}</span>
+              </div>
+              <ChevronDown size={14} className={`chip-chevron ${isProfileOpen ? 'rotate' : ''}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="profile-menu-dropdown animate-fade-in">
+                <div className="dropdown-user-header">
+                  <p className="dropdown-user-name">{perfil?.nombre || 'Samir Bolívar'}</p>
+                  <p className="dropdown-user-cedula">CC: {perfil?.cedula || '—'}</p>
+                  <span className="dropdown-user-badge">{perfil?.rol || 'Administrador'}</span>
+                </div>
+                
+                <div className="dropdown-divider" />
+                
+                <div className="dropdown-menu-list">
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/'); }}>
+                    <Home size={16} />
+                    <span>Página de Inicio</span>
+                  </button>
+                  {perfil?.rol === 'administrador' && (
+                    <>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/admin/usuarios'); }}>
+                        <Users size={16} />
+                        <span>Gestión de Usuarios</span>
+                      </button>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/metricas'); }}>
+                        <BarChart3 size={16} />
+                        <span>Métricas y Reportes</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="dropdown-divider" />
+
+                <button 
+                  className="dropdown-item item-danger" 
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    setShowLogoutModal(true);
+                  }}
+                >
+                  <Power size={16} />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
+
+      {/* Modal de Confirmación de Cierre de Sesión */}
+      <ModalConfirmarSalida 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          signOut();
+        }} 
+      />
 
       {/* ── Panel de Filtros ───────────────── */}
       <div className={`seg-filtros-panel ${showFiltros ? 'open' : ''}`}>
@@ -268,7 +391,13 @@ export default function SeguimientoMinutas() {
                         <span className="novedad-badge">{m.tipos_novedad?.nombre ?? '—'}</span>
                       </td>
                       <td>
-                        <button className="seg-btn-eye" onClick={() => handleVerDetalle(m)} title="Ver detalle">
+                        <button 
+                          className="seg-btn-eye" 
+                          onClick={() => handleVerDetalle(m)} 
+                          aria-label="Ver detalle"
+                          data-tooltip="Ver detalle"
+                          data-tooltip-pos="left"
+                        >
                           <Eye size={18} />
                         </button>
                       </td>

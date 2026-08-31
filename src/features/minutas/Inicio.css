@@ -46,52 +46,6 @@
   color: #281716;
 }
 
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.topbar-admin {
-  width: 40px;
-  height: 40px;
-  border-radius: 9999px;
-  background: #ffe1df;
-  border: 1px solid #e4bdba;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #5c403e;
-  transition: all 0.15s ease;
-}
-
-.topbar-admin:hover {
-  background: #fadcd9;
-  border-color: #906f6d;
-  color: #281716;
-}
-
-.topbar-profile {
-  width: 40px;
-  height: 40px;
-  border-radius: 9999px;
-  background: #ffe1df;
-  border: 1px solid #e4bdba;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  cursor: pointer;
-  color: #5c403e;
-  transition: all 0.15s ease;
-}
-
-.topbar-profile:hover {
-  background: #fadcd9;
-  border-color: #906f6d;
-}
-
 /* ─── Main Content (Centered) ──────────────────────────────── */
 .inicio-main {
   flex-grow: 1;
@@ -233,9 +187,3 @@
   50% { opacity: 0.5; }
 }
 
-.minutas-count-pill {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
-  color: #906f6d;
-}

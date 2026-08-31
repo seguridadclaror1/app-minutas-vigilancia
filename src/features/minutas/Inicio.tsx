@@ -1,46 +1,51 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { supabase } from '../../config/supabase';
 import {
   Plus,
-  LogOut,
+  Power,
   Users,
   ClipboardList,
+  ChevronDown,
+  BarChart3
 } from 'lucide-react';
+import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './Inicio.css';
 
 export default function Inicio() {
   const { perfil, signOut } = useAuth();
   const navigate = useNavigate();
-  const [, setTotalMinutas] = useState(0);
+  
+  // Estado del menú desplegable de perfil
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Estado del modal de confirmación de salida
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Cerrar dropdown al hacer clic afuera
   useEffect(() => {
-    fetchTotalMinutas();
-  }, []);
-
-  async function fetchTotalMinutas() {
-    try {
-      const { count } = await supabase
-        .from('minutas')
-        .select('*', { count: 'exact', head: true });
-      setTotalMinutas(count ?? 0);
-    } catch (err) {
-      console.error('Error contando minutas:', err);
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
     }
-  }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   function getGreeting() {
     return 'Bienvenido';
   }
 
   async function handleSignOut() {
+    setShowLogoutModal(false);
     await signOut();
   }
 
   return (
     <div className="inicio-page">
-      {/* TopAppBar — fiel a Stitch */}
+      {/* TopAppBar Corporativo */}
       <header className="inicio-topbar">
         <div className="topbar-left">
           <img
@@ -52,39 +57,85 @@ export default function Inicio() {
           />
           <span className="topbar-brand">Minutas</span>
         </div>
-        <div className="topbar-actions">
-          {perfil?.rol === 'administrador' && (
-            <>
-              <button
-                className="topbar-admin"
-                onClick={() => navigate('/seguimiento')}
-                aria-label="Seguimiento de Minutas"
-                title="Seguimiento de Minutas"
-              >
-                <ClipboardList size={20} />
-              </button>
-              <button
-                className="topbar-admin"
-                onClick={() => navigate('/admin/usuarios')}
-                aria-label="Gestionar usuarios"
-                title="Gestión de Usuarios"
-              >
-                <Users size={20} />
-              </button>
-            </>
-          )}
+
+        {/* Menú de Perfil Desplegable (Enterprise) */}
+        <div className="profile-dropdown-wrapper" ref={dropdownRef}>
           <button
-            className="topbar-profile"
-            onClick={handleSignOut}
-            aria-label="Cerrar sesión"
-            title="Cerrar sesión"
+            className={`profile-chip-btn ${isDropdownOpen ? 'active' : ''}`}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            aria-label="Menú de usuario"
+            data-tooltip="Mi Cuenta y Opciones"
           >
-            <LogOut size={20} />
+            <div className="avatar-circle">
+              {perfil?.nombre?.charAt(0) || 'S'}
+            </div>
+            <div className="profile-chip-info">
+              <span className="profile-chip-name">{perfil?.nombre?.split(' ')[0] || 'Samir'}</span>
+              <span className="profile-chip-role">{perfil?.rol || 'Administrador'}</span>
+            </div>
+            <ChevronDown size={14} className={`chip-chevron ${isDropdownOpen ? 'rotate' : ''}`} />
           </button>
+
+          {isDropdownOpen && (
+            <div className="profile-menu-dropdown animate-fade-in">
+              <div className="dropdown-user-header">
+                <p className="dropdown-user-name">{perfil?.nombre || 'Samir Bolívar'}</p>
+                <p className="dropdown-user-cedula">CC: {perfil?.cedula || '—'}</p>
+                <span className="dropdown-user-badge">{perfil?.rol || 'Administrador'}</span>
+              </div>
+              
+              <div className="dropdown-divider" />
+              
+              <div className="dropdown-menu-list">
+                {perfil?.rol === 'administrador' && (
+                  <>
+                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/seguimiento'); }}>
+                      <ClipboardList size={16} />
+                      <span>Seguimiento de Minutas</span>
+                    </button>
+                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/admin/usuarios'); }}>
+                      <Users size={16} />
+                      <span>Gestión de Usuarios</span>
+                    </button>
+                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/metricas'); }}>
+                      <BarChart3 size={16} />
+                      <span>Métricas y Reportes</span>
+                    </button>
+                  </>
+                )}
+                {perfil?.rol === 'supervisor' && (
+                  <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/seguimiento'); }}>
+                    <ClipboardList size={16} />
+                    <span>Seguimiento de Minutas</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="dropdown-divider" />
+
+              <button 
+                className="dropdown-item item-danger" 
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  setShowLogoutModal(true);
+                }}
+              >
+                <Power size={16} />
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Main Content — centered como Stitch */}
+      {/* Modal de Confirmación de Cierre de Sesión */}
+      <ModalConfirmarSalida 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={handleSignOut} 
+      />
+
+      {/* Main Content — Centered */}
       <main className="inicio-main">
         {/* Welcome Section */}
         <section className="welcome-section">
@@ -132,3 +183,5 @@ export default function Inicio() {
     </div>
   );
 }
+
+

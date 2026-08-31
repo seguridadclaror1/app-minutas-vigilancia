@@ -203,7 +203,12 @@ export default function NuevaMinuta() {
   return (
     <div className="nueva-minuta-page">
       <header className="minuta-header">
-        <button className="back-btn" onClick={() => navigate(-1)} aria-label="Volver">
+        <button 
+          className="back-btn" 
+          onClick={() => navigate(-1)} 
+          aria-label="Volver"
+          data-tooltip="Volver"
+        >
           <ArrowLeft size={24} />
         </button>
         <h1>Registrar Anotación</h1>

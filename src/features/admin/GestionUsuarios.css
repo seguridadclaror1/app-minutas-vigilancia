@@ -10,50 +10,77 @@
   flex-direction: column;
 }
 
-/* --- Header --- */
+/* --- Header Corporativo Enterprise --- */
 .admin-header {
   position: sticky;
   top: 0;
   z-index: 40;
-  background-color: #fff8f7; /* surface */
-  border-bottom: 1px solid #e4bdba; /* outline-variant */
+  background-color: #fff8f7;
+  border-bottom: 1px solid #e4bdba;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 16px;
-  height: 48px;
+  height: 56px;
+  gap: 12px;
 }
 
-.header-title-row {
+.admin-header-left {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
+  min-width: 0;
 }
 
-.back-btn {
-  background: transparent;
-  border: none;
-  color: #da2d34; /* primary */
-  padding: 4px;
-  border-radius: 8px;
+.admin-header-right {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.admin-header-divider {
+  width: 1px;
+  height: 22px;
+  background: #e4bdba;
+}
+
+.admin-back-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  color: #da2d34;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 2px 6px rgba(218, 45, 52, 0.04);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
 }
 
-.back-btn:active {
-  background-color: #ffe1df; /* surface-container-high */
+.admin-back-pill:hover {
+  background: #fff0ef;
+  border-color: #da2d34;
+  transform: translateY(-1px);
 }
 
-.admin-header h1 {
-  font-family: 'Inter', sans-serif;
-  font-size: 20px;
+.admin-title-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-title-badge h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
   font-weight: 700;
-  color: #da2d34; /* primary */
+  color: #281716;
   margin: 0;
-  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 /* --- Content --- */

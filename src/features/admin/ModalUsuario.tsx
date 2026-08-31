@@ -57,16 +57,30 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
     try {
       if (usuarioEdit) {
         // ACTUALIZAR USUARIO
-        if (formData.contrasena !== usuarioEdit.contrasena) {
-          const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-            usuarioEdit.id,
-            { 
-              password: formData.contrasena,
-              user_metadata: { nombre: nombreFormateado, rol: formData.rol } 
-            }
-          );
-          if (authError) throw authError;
+        const authUpdates: any = {
+          user_metadata: {
+            cedula: formData.cedula,
+            nombre: nombreFormateado,
+            rol: formData.rol,
+            contrasena: formData.contrasena
+          }
+        };
+
+        if (formData.cedula !== usuarioEdit.cedula) {
+          authUpdates.email = `${formData.cedula}@minutas.com`;
+          authUpdates.email_confirm = true;
         }
+
+        if (formData.contrasena !== usuarioEdit.contrasena) {
+          authUpdates.password = formData.contrasena;
+        }
+
+        // Sincronizar credenciales y metadatos en Supabase Auth
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          usuarioEdit.id,
+          authUpdates
+        );
+        if (authError) throw authError;
 
         const { error: updateError } = await supabase
           .from('perfiles')
@@ -131,10 +145,9 @@ export default function ModalUsuario({ isOpen, onClose, onSaved, usuarioEdit }: 
                 className="form-input"
                 value={formData.cedula}
                 onChange={e => setFormData({ ...formData, cedula: e.target.value.replace(/\D/g, '') })}
-                disabled={!!usuarioEdit || loading}
+                disabled={loading}
                 placeholder="Ej: 1234567890"
               />
-              {usuarioEdit && <small style={{ color: '#64748b' }}>La cédula no se puede modificar tras la creación.</small>}
             </div>
 
             <div className="form-group">

@@ -62,9 +62,11 @@ export function translateError(error: any): string {
   // 6. Restriccion de clave foranea al eliminar usuarios o minutas
   if (
     rawMessage.includes('violates foreign key constraint') ||
-    rawMessage.includes('foreign key constraint')
+    rawMessage.includes('foreign key constraint') ||
+    rawMessage.includes('database error deleting user') ||
+    rawMessage.includes('error deleting user')
   ) {
-    return 'No se puede eliminar este usuario porque ya tiene minutas registradas en el sistema.';
+    return 'No se puede eliminar este usuario porque tiene minutas o registros vinculados. Para retirarlo del servicio, cambie su estado a "Inactivo".';
   }
 
   // 7. Permisos o sesion faltante
