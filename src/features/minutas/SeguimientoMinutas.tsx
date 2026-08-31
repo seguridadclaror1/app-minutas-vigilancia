@@ -189,14 +189,17 @@ export default function SeguimientoMinutas() {
             data-tooltip="Volver a Inicio"
           >
             <ArrowLeft size={16} />
-            <span>Inicio</span>
+            <span className="back-pill-text">Inicio</span>
           </button>
 
           <div className="seg-header-divider" />
 
           <div className="seg-title-badge">
             <ClipboardList size={18} color="#da2d34" />
-            <h1>Seguimiento de Minutas</h1>
+            <h1>
+              <span className="title-text-full">Seguimiento de Minutas</span>
+              <span className="title-text-short">Seguimiento</span>
+            </h1>
           </div>
         </div>
 

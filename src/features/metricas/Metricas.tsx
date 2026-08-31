@@ -286,14 +286,17 @@ export default function Metricas() {
             data-tooltip="Volver a Inicio"
           >
             <ArrowLeft size={16} />
-            <span>Inicio</span>
+            <span className="back-pill-text">Inicio</span>
           </button>
 
           <div className="metricas-header-divider" />
 
           <div className="metricas-title-badge">
             <BarChart3 size={18} color="#da2d34" />
-            <h1>Métricas y Reportes</h1>
+            <h1>
+              <span className="title-text-full">Métricas y Reportes</span>
+              <span className="title-text-short">Métricas</span>
+            </h1>
           </div>
         </div>
 

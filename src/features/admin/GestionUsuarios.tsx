@@ -223,14 +223,17 @@ export default function GestionUsuarios() {
             data-tooltip="Volver a Inicio"
           >
             <ArrowLeft size={16} />
-            <span>Inicio</span>
+            <span className="back-pill-text">Inicio</span>
           </button>
 
           <div className="admin-header-divider" />
 
           <div className="admin-title-badge">
             <Users size={18} color="#da2d34" />
-            <h1>Gestión de Usuarios</h1>
+            <h1>
+              <span className="title-text-full">Gestión de Usuarios</span>
+              <span className="title-text-short">Usuarios</span>
+            </h1>
           </div>
         </div>
 

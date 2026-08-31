@@ -369,6 +369,50 @@ body {
   transform: rotate(180deg);
 }
 
+/* ─── Responsive Header Helpers ────────────────────────────── */
+.title-text-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .profile-chip-info {
+    display: none;
+  }
+  .chip-chevron {
+    display: none;
+  }
+  .profile-chip-btn {
+    padding: 2px;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+    gap: 0;
+  }
+  .back-pill-text {
+    display: none;
+  }
+  .seg-back-pill, .admin-back-pill, .metricas-back-pill {
+    padding: 6px !important;
+    width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+  .seg-header-divider, .admin-header-divider, .metricas-header-divider {
+    display: none !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .title-text-full {
+    display: none;
+  }
+  .title-text-short {
+    display: inline;
+  }
+}
+
 .profile-menu-dropdown {
   position: absolute;
   top: calc(100% + 8px);

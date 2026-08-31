@@ -84,6 +84,24 @@
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  .seg-header {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .seg-header-left {
+    gap: 8px;
+  }
+  .seg-title-badge h1 {
+    font-size: 16px;
+  }
+  .seg-btn-filter-pill {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+}
+
 .seg-btn-filter-pill {
   position: relative;
   display: inline-flex;

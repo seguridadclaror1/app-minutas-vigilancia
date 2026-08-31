@@ -83,6 +83,24 @@
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  .metricas-header {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .metricas-header-left {
+    gap: 8px;
+  }
+  .metricas-title-badge h1 {
+    font-size: 16px;
+  }
+  .btn-export-excel {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+}
+
 .btn-export-excel {
   display: inline-flex;
   align-items: center;

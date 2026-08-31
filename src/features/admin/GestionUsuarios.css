@@ -83,6 +83,19 @@
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  .admin-header {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .admin-header-left {
+    gap: 8px;
+  }
+  .admin-title-badge h1 {
+    font-size: 16px;
+  }
+}
+
 /* --- Content --- */
 .admin-content {
   flex: 1;
