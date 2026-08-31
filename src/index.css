@@ -302,9 +302,35 @@ body {
   transform: translateY(-50%) translateX(0);
 }
 
+/* Desactivar tooltips flotantes en móviles y dispositivos táctiles */
+@media (hover: none), (max-width: 768px) {
+  [data-tooltip]::before,
+  [data-tooltip]::after {
+    display: none !important;
+  }
+}
+
 /* ─── Global Enterprise Profile Dropdown ────────────────────── */
 .profile-dropdown-wrapper {
   position: relative;
+}
+
+/* En desktop, alinear el tooltip hacia la izquierda para que nunca se desborde */
+.profile-dropdown-wrapper .profile-chip-btn[data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+.profile-dropdown-wrapper .profile-chip-btn[data-tooltip]:hover::after {
+  transform: translateY(0);
+}
+.profile-dropdown-wrapper .profile-chip-btn[data-tooltip]::before {
+  left: auto;
+  right: 12px;
+  transform: translateY(-4px);
+}
+.profile-dropdown-wrapper .profile-chip-btn[data-tooltip]:hover::before {
+  transform: translateY(0);
 }
 
 .profile-chip-btn {
