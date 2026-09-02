@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { formatearFechaHoraColombia, ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
 
 export interface MinutaReporte {
   fecha_hora: string;
@@ -29,7 +30,7 @@ export async function descargarReporteExcel(minutas: MinutaReporte[], tituloPeri
   // Fila de metadatos
   worksheet.mergeCells('A2:F2');
   const subCell = worksheet.getCell('A2');
-  subCell.value = `Generado: ${new Date().toLocaleString('es-CO')} | Total Registros: ${minutas.length}`;
+  subCell.value = `Generado: ${new Date().toLocaleString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA })} | Total Registros: ${minutas.length}`;
   subCell.font = { name: 'Arial', size: 9.5, italic: true, color: { argb: 'FF5C403E' } };
   subCell.fill = {
     type: 'pattern',
@@ -62,14 +63,7 @@ export async function descargarReporteExcel(minutas: MinutaReporte[], tituloPeri
   // Datos
   minutas.forEach((m, idx) => {
     const row = worksheet.addRow([
-      new Date(m.fecha_hora).toLocaleString('es-CO', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: false 
-      }),
+      formatearFechaHoraColombia(m.fecha_hora),
       m.cedula,
       m.vigilante,
       m.sede,

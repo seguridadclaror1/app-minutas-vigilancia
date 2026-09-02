@@ -11,6 +11,7 @@ import type { Sede, TipoNovedad } from '../../types/database';
 import { generateUUID } from '../../utils/uuid';
 import { compressImage } from '../../utils/imageCompressor';
 import { translateError } from '../../utils/errorTranslator';
+import { ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
 
 export default function NuevaMinuta() {
   const navigate = useNavigate();
@@ -221,6 +222,7 @@ export default function NuevaMinuta() {
             <Clock size={20} color="#64748b" />
             <span>
               {new Date().toLocaleString('es-CO', {
+                timeZone: ZONA_HORARIA_COLOMBIA,
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
