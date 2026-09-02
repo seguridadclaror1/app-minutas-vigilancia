@@ -18,6 +18,11 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import type { Minuta, Sede, TipoNovedad, Evidencia } from '../../types/database';
+import { 
+  obtenerRangoUtcParaFiltroColombia, 
+  formatearFechaColombia, 
+  formatearFechaHoraColombia 
+} from '../../utils/fechasColombia';
 import PremiumSelect from '../../components/PremiumSelect';
 import PremiumDatePicker from '../../components/PremiumDatePicker';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
@@ -107,9 +112,9 @@ export default function SeguimientoMinutas() {
         .order('fecha_hora', { ascending: false });
 
       if (fechaFiltro.start) {
-        query = query.gte('fecha_hora', `${fechaFiltro.start}T00:00:00`);
-        const endToUse = fechaFiltro.end || fechaFiltro.start;
-        query = query.lte('fecha_hora', `${endToUse}T23:59:59`);
+        const { desde, hasta } = obtenerRangoUtcParaFiltroColombia(fechaFiltro.start, fechaFiltro.end);
+        query = query.gte('fecha_hora', desde);
+        query = query.lte('fecha_hora', hasta);
       }
       if (sedeFiltro)  query = query.eq('sede_id', sedeFiltro);
       if (tipoFiltro)  query = query.eq('tipo_novedad_id', tipoFiltro);
@@ -169,11 +174,9 @@ export default function SeguimientoMinutas() {
   const hayFiltros = !!(searchTerm || fechaFiltro.start || fechaFiltro.end || sedeFiltro || tipoFiltro);
 
   // ─── Helpers ──────────────────────────────────────────────────
-  const formatFecha = (iso: string) =>
-    new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const formatFecha = (iso: string) => formatearFechaColombia(iso);
 
-  const formatFechaHora = (iso: string) =>
-    new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+  const formatFechaHora = (iso: string) => formatearFechaHoraColombia(iso);
 
   // ─── Render ───────────────────────────────────────────────────
   return (

@@ -165,6 +165,7 @@ export default function Metricas() {
     promedioDiario,
     totalNovedades,
     totalRondas,
+    totalOtros,
     porcentajeNovedades,
     sedeTop,
     distribucionTipos,
@@ -176,6 +177,7 @@ export default function Metricas() {
 
     let novedadesCount = 0;
     let rondasCount = 0;
+    let otrosCount = 0;
 
     const sedesMap = new Map<string, number>();
     const tiposMap = new Map<string, number>();
@@ -186,10 +188,15 @@ export default function Metricas() {
       const sedeNom = (m.sedes?.nombre || 'Sin Sede').trim();
       const vigNom = (m.perfiles?.nombre || 'Desconocido').trim();
 
-      // Conteo por tipo de novedad
-      const esNovedad = tipoNom.toLowerCase().includes('novedad');
-      if (esNovedad) novedadesCount++;
-      else rondasCount++;
+      // Conteo por tipo exacto de anotación
+      const tipoLower = tipoNom.toLowerCase();
+      if (tipoLower.includes('novedad')) {
+        novedadesCount++;
+      } else if (tipoLower.includes('ronda')) {
+        rondasCount++;
+      } else {
+        otrosCount++;
+      }
 
       tiposMap.set(tipoNom, (tiposMap.get(tipoNom) || 0) + 1);
       sedesMap.set(sedeNom, (sedesMap.get(sedeNom) || 0) + 1);
@@ -241,6 +248,7 @@ export default function Metricas() {
       promedioDiario: prom,
       totalNovedades: novedadesCount,
       totalRondas: rondasCount,
+      totalOtros: otrosCount,
       porcentajeNovedades: pctNov,
       sedeTop: { nombre: topSedeNombre, count: topSedeCount, porcentaje: total > 0 ? Math.round((topSedeCount / total) * 100) : 0 },
       distribucionTipos: distTipos,
@@ -489,12 +497,13 @@ export default function Metricas() {
                   <div 
                     className="kpi-progress-bar" 
                     style={{ width: `${porcentajeNovedades}%` }}
-                    data-tooltip={`${totalNovedades} Novedades vs ${totalRondas} Rondas`}
+                    data-tooltip={`${totalNovedades} Novedades, ${totalRondas} Rondas${totalOtros > 0 ? `, ${totalOtros} Otros tipos` : ''}`}
                   />
                 </div>
                 <div className="kpi-split-info">
                   <span>🛡️ {totalRondas} Rondas</span>
                   <span>🚨 {totalNovedades} Novedades</span>
+                  {totalOtros > 0 && <span>📋 {totalOtros} Otros</span>}
                 </div>
               </div>
 

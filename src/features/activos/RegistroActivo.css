@@ -1,0 +1,427 @@
+/* ============================================================
+   Registro de Activos – Estilos Claro & Prosegur
+   ============================================================ */
+
+.registro-activos-page {
+  min-height: 100dvh;
+  background-color: #fff8f7;
+  font-family: 'Inter', sans-serif;
+  color: #281716;
+  display: flex;
+  flex-direction: column;
+}
+
+.registro-activos-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #fff8f7;
+  border-bottom: 1px solid #e4bdba;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-volver {
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #281716;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-volver:hover {
+  background: #ffe1df;
+  border-color: #da2d34;
+  color: #da2d34;
+}
+
+.header-titulos {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-titulo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #281716;
+  line-height: 1.2;
+}
+
+.header-subtitulo {
+  font-size: 12px;
+  color: #5c403e;
+}
+
+.registro-activos-contenedor {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Selector de Movimiento (Entrada / Salida) ────────────── */
+.movimiento-toggle-contenedor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #f0dedd;
+  padding: 6px;
+  border-radius: 14px;
+}
+
+.btn-toggle-movimiento {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #5c403e;
+  background: transparent;
+}
+
+.btn-toggle-movimiento.activo-entrada {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.btn-toggle-movimiento.activo-salida {
+  background: #da2d34;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(218, 45, 52, 0.3);
+}
+
+/* ─── Tarjeta de Formulario ────────────────────────────────── */
+.formulario-card {
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #281716;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-label .requerido {
+  color: #da2d34;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e4bdba;
+  font-size: 15px;
+  font-family: inherit;
+  color: #281716;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #da2d34;
+  box-shadow: 0 0 0 3px rgba(218, 45, 52, 0.15);
+}
+
+.form-input.input-serial {
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #b81c22;
+  text-transform: uppercase;
+  background: #fff8f7;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Selector de Estado del Equipo ────────────────────────── */
+.estado-chips-grupo {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip-estado {
+  flex: 1;
+  min-width: 80px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e4bdba;
+  background: #ffffff;
+  color: #5c403e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.chip-estado.seleccionado-bueno {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+}
+
+.chip-estado.seleccionado-regular {
+  background: #fef9c3;
+  border-color: #eab308;
+  color: #a16207;
+}
+
+.chip-estado.seleccionado-malo {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+/* ─── Botón Guardar ────────────────────────────────────────── */
+.btn-guardar-registro {
+  width: 100%;
+  padding: 16px;
+  background: #da2d34;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(218, 45, 52, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-guardar-registro:hover {
+  background: #c7242a;
+  transform: translateY(-1px);
+}
+
+.btn-guardar-registro:active {
+  transform: scale(0.98);
+}
+
+.btn-guardar-registro:disabled {
+  background: #a8a29e;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── Panel de Métricas e Inventario Local ─────────────────── */
+.inventario-resumen-card {
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inventario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inventario-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: #281716;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metricas-activos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .metricas-activos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metrica-item {
+  background: #fff8f7;
+  border: 1px solid #f0dedd;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.metrica-valor {
+  font-size: 24px;
+  font-weight: 800;
+  color: #281716;
+}
+
+.metrica-etiqueta {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5c403e;
+  text-transform: uppercase;
+}
+
+/* ─── Tabla / Lista de Registros Recientes ─────────────────── */
+.registros-recientes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.registro-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e4bdba;
+  background: #fff8f7;
+  gap: 12px;
+}
+
+.registro-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.registro-badge-movimiento {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.registro-badge-movimiento.badge-entrada {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.registro-badge-movimiento.badge-salida {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.registro-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.registro-item-serial {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #281716;
+}
+
+.registro-item-detalles {
+  font-size: 12px;
+  color: #5c403e;
+}
+
+.btn-eliminar-registro {
+  background: transparent;
+  border: none;
+  color: #a8a29e;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.btn-eliminar-registro:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* ─── Mensaje de Notificación Flotante ─────────────────────── */
+.notificacion-exito {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #15803d;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

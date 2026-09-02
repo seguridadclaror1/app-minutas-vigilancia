@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ArrowUpLeft } from 'lucide-react';
+import { obtenerClaveFechaColombia, ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
 
 interface MinutaGrafico {
   id: string;
@@ -19,6 +20,7 @@ interface ItemGrafico {
   total: number;
   novedades: number;
   rondas: number;
+  otros: number;
   fechaInicio: Date;
   fechaFin: Date;
 }
@@ -102,6 +104,7 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
           total: 0,
           novedades: 0,
           rondas: 0,
+          otros: 0,
           fechaInicio: mesStart,
           fechaFin: mesEnd
         });
@@ -111,14 +114,14 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
 
       // Sumar registros
       minutasEnRango.forEach((m) => {
-        const f = new Date(m.fecha_hora);
-        const key = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`;
+        const key = obtenerClaveFechaColombia(m.fecha_hora).slice(0, 7);
         const item = mesesMap.get(key);
         if (item) {
           item.total++;
-          const esNov = (m.tipos_novedad?.nombre || '').toLowerCase().includes('novedad');
-          if (esNov) item.novedades++;
-          else item.rondas++;
+          const tipoLower = (m.tipos_novedad?.nombre || '').toLowerCase();
+          if (tipoLower.includes('novedad')) item.novedades++;
+          else if (tipoLower.includes('ronda')) item.rondas++;
+          else item.otros++;
         }
       });
 
@@ -128,45 +131,32 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     // ── NIVEL SEMANA ─────────────────────────────────────────────
     if (nivel === 'semana') {
       const semanasList: ItemGrafico[] = [];
-      
-      // Agrupar en bloques de 7 días naturales o semanas del periodo
-      let semIdx = 1;
       let iter = new Date(inicioEfectivo);
-      iter.setHours(0, 0, 0, 0);
+      let semIdx = 1;
 
       while (iter <= finEfectivo) {
         const semStart = new Date(iter);
-        const semEnd = new Date(iter.getTime() + 6 * 24 * 60 * 60 * 1000);
+        semStart.setHours(0, 0, 0, 0);
+
+        // Avanzar 6 días o hasta finEfectivo
+        const semEnd = new Date(semStart);
+        semEnd.setDate(semEnd.getDate() + 6);
         semEnd.setHours(23, 59, 59, 999);
         if (semEnd > finEfectivo) {
           semEnd.setTime(finEfectivo.getTime());
         }
 
-        const startStr = semStart.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-        const endStr = semEnd.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-        const id = `sem-${semIdx}-${semStart.toISOString().slice(0, 10)}`;
-
-        let total = 0;
-        let novedades = 0;
-        let rondas = 0;
-
-        minutasEnRango.forEach((m) => {
-          const f = new Date(m.fecha_hora);
-          if (f >= semStart && f <= semEnd) {
-            total++;
-            const esNov = (m.tipos_novedad?.nombre || '').toLowerCase().includes('novedad');
-            if (esNov) novedades++;
-            else rondas++;
-          }
-        });
+        const startStr = semStart.toLocaleDateString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA, day: 'numeric', month: 'short' });
+        const endStr = semEnd.toLocaleDateString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA, day: 'numeric', month: 'short' });
 
         semanasList.push({
-          id,
+          id: `sem-${semIdx}`,
           label: `Semana ${semIdx}`,
           subLabel: `${startStr} - ${endStr}`,
-          total,
-          novedades,
-          rondas,
+          total: 0,
+          novedades: 0,
+          rondas: 0,
+          otros: 0,
           fechaInicio: semStart,
           fechaFin: semEnd
         });
@@ -175,6 +165,19 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
         iter = new Date(semEnd.getTime() + 1000);
         iter.setHours(0, 0, 0, 0);
       }
+
+      // Sumar registros en semanas
+      minutasEnRango.forEach((m) => {
+        const f = new Date(m.fecha_hora);
+        const semItem = semanasList.find((s) => f >= s.fechaInicio && f <= s.fechaFin);
+        if (semItem) {
+          semItem.total++;
+          const tipoLower = (m.tipos_novedad?.nombre || '').toLowerCase();
+          if (tipoLower.includes('novedad')) semItem.novedades++;
+          else if (tipoLower.includes('ronda')) semItem.rondas++;
+          else semItem.otros++;
+        }
+      });
 
       return semanasList;
     }
@@ -185,14 +188,14 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     diaIter.setHours(0, 0, 0, 0);
 
     while (diaIter <= finEfectivo) {
-      const key = diaIter.toISOString().slice(0, 10);
+      const key = obtenerClaveFechaColombia(diaIter);
       const dStart = new Date(diaIter);
       dStart.setHours(0, 0, 0, 0);
       const dEnd = new Date(diaIter);
       dEnd.setHours(23, 59, 59, 999);
 
-      const label = diaIter.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-      const subLabel = diaIter.toLocaleDateString('es-CO', { weekday: 'short' });
+      const label = diaIter.toLocaleDateString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA, day: 'numeric', month: 'short' });
+      const subLabel = diaIter.toLocaleDateString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA, weekday: 'short' });
 
       diasMap.set(key, {
         id: key,
@@ -201,6 +204,7 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
         total: 0,
         novedades: 0,
         rondas: 0,
+        otros: 0,
         fechaInicio: dStart,
         fechaFin: dEnd
       });
@@ -209,13 +213,14 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     }
 
     minutasEnRango.forEach((m) => {
-      const key = m.fecha_hora.slice(0, 10);
+      const key = obtenerClaveFechaColombia(m.fecha_hora);
       const item = diasMap.get(key);
       if (item) {
         item.total++;
-        const esNov = (m.tipos_novedad?.nombre || '').toLowerCase().includes('novedad');
-        if (esNov) item.novedades++;
-        else item.rondas++;
+        const tipoLower = (m.tipos_novedad?.nombre || '').toLowerCase();
+        if (tipoLower.includes('novedad')) item.novedades++;
+        else if (tipoLower.includes('ronda')) item.rondas++;
+        else item.otros++;
       }
     });
 
@@ -331,7 +336,7 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
             <div className="tooltip-metrics">
               <span className="tooltip-total">{itemsGrafico[hoveredIdx].total} Minutas</span>
               <span className="tooltip-sub">
-                🚨 {itemsGrafico[hoveredIdx].novedades} Nov | 🛡️ {itemsGrafico[hoveredIdx].rondas} Rondas
+                🚨 {itemsGrafico[hoveredIdx].novedades} Nov | 🛡️ {itemsGrafico[hoveredIdx].rondas} Rondas{itemsGrafico[hoveredIdx].otros > 0 ? ` | 📋 ${itemsGrafico[hoveredIdx].otros} Otros` : ''}
               </span>
               {nivel !== 'dia' && (
                 <span className="tooltip-hint">👆 Toca para explorar</span>

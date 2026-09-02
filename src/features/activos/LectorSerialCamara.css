@@ -1,0 +1,396 @@
+/* ============================================================
+   Lector de Serial por Cámara / Escáner en Vivo – Claro & Prosegur
+   ============================================================ */
+
+.lector-camara-contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.lector-opciones-captura {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .lector-opciones-captura {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-captura-camara,
+.btn-captura-galeria {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.btn-captura-camara {
+  background: linear-gradient(135deg, #da2d34 0%, #a8191f 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(218, 45, 52, 0.28);
+}
+
+.btn-captura-camara:hover {
+  background: linear-gradient(135deg, #c7242a 0%, #91141a 100%);
+  transform: translateY(-1px);
+}
+
+.btn-captura-camara:active {
+  transform: scale(0.98);
+}
+
+.btn-captura-galeria {
+  background: #ffffff;
+  color: #5c403e;
+  border: 1.5px solid #e4bdba;
+}
+
+.btn-captura-galeria:hover {
+  background: #fff8f7;
+  border-color: #da2d34;
+  color: #da2d34;
+}
+
+/* ─── Visor Escáner en Vivo a Pantalla Completa ────────────── */
+.visor-en-vivo-modal {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 24px);
+}
+
+.visor-header {
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ffffff;
+  z-index: 10;
+  padding-top: 8px;
+}
+
+.visor-titulo-contenedor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.visor-titulo {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.visor-subtitulo {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.visor-acciones-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-icono-visor {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s;
+}
+
+.btn-icono-visor.activo {
+  background: #eab308;
+  color: #000000;
+  border-color: #facc15;
+}
+
+.visor-video-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000000;
+}
+
+.visor-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Recuadro y Láser de Enfoque */
+.guia-enfoque-serial {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 84%;
+  height: 42%;
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.laser-animado {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #22c55e, #10b981, transparent);
+  box-shadow: 0 0 12px #22c55e;
+  animation: laser-scan 2s infinite ease-in-out;
+}
+
+@keyframes laser-scan {
+  0% { top: 5%; opacity: 0.2; }
+  50% { top: 90%; opacity: 1; }
+  100% { top: 5%; opacity: 0.2; }
+}
+
+.guia-enfoque-texto {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: auto;
+}
+
+/* Controles inferiores del visor */
+.visor-controles {
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+  padding-bottom: 8px;
+}
+
+.visor-instruccion-rapida {
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+
+.visor-botones-accion-fila {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  width: 100%;
+}
+
+.btn-disparo-foto {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #da2d34;
+  border: 4px solid #ffffff;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(218, 45, 52, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition: transform 0.1s ease;
+}
+
+.btn-disparo-foto:active {
+  transform: scale(0.92);
+}
+
+.btn-disparo-foto span {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ─── Estado de Carga / Procesamiento OCR ─────────────────── */
+.ocr-procesando-caja {
+  background: #fff8f7;
+  border: 1px solid #e4bdba;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #e4bdba; }
+  50% { border-color: #da2d34; }
+}
+
+.ocr-procesando-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #281716;
+}
+
+.ocr-barra-progreso-fondo {
+  width: 100%;
+  height: 6px;
+  background: #f0dedd;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ocr-barra-progreso-relleno {
+  height: 100%;
+  background: #da2d34;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* ─── Vista Previa de la Foto y Resultados ─────────────────── */
+.vista-previa-serial-caja {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.vista-previa-imagen-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vista-previa-img {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.btn-eliminar-foto {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-eliminar-foto:hover {
+  background: #da2d34;
+}
+
+/* ─── Candidatos Alternativos ─────────────────────────────── */
+.candidatos-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.candidatos-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5c403e;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.candidatos-chips-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-candidato {
+  padding: 6px 12px;
+  background: #ffe1df;
+  color: #281716;
+  border: 1px solid #e4bdba;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-candidato:hover {
+  background: #da2d34;
+  color: #ffffff;
+  border-color: #da2d34;
+  transform: translateY(-1px);
+}
+
+.chip-candidato.activo {
+  background: #da2d34;
+  color: #ffffff;
+  border-color: #da2d34;
+}
