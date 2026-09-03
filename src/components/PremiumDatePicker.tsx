@@ -7,6 +7,7 @@ interface PremiumDatePickerProps {
   endDate: string;
   onChange: (start: string, end: string) => void;
   placeholder?: string;
+  abiertoPorDefecto?: boolean;
 }
 
 const MESES = [
@@ -15,8 +16,14 @@ const MESES = [
 ];
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
-export default function PremiumDatePicker({ startDate, endDate, onChange, placeholder = 'Seleccionar rango…' }: PremiumDatePickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function PremiumDatePicker({
+  startDate,
+  endDate,
+  onChange,
+  placeholder = 'Seleccionar rango…',
+  abiertoPorDefecto = false
+}: PremiumDatePickerProps) {
+  const [isOpen, setIsOpen] = useState(abiertoPorDefecto);
   
   const initialDate = startDate ? new Date(startDate + 'T12:00:00') : new Date();
   const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
