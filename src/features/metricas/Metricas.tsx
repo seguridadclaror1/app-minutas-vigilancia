@@ -59,6 +59,7 @@ export default function Metricas() {
   // Estados de Filtro Temporal
   const [rango, setRango] = useState<RangoPredefinido>('7d');
   const [fechaCustom, setFechaCustom] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [claveSelectorPersonalizado, setClaveSelectorPersonalizado] = useState(0);
 
   // ─── Carga de datos ───────────────────────────────────────────
   const fetchDatos = async () => {
@@ -101,8 +102,8 @@ export default function Metricas() {
     let titulo = 'Últimos 7 días';
 
     if (rango === 'hoy') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
-      fin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
+      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
+      fin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
       dias = 1;
       titulo = 'Hoy';
     } else if (rango === '7d') {
@@ -112,12 +113,12 @@ export default function Metricas() {
       dias = 7;
       titulo = 'Últimos 7 días';
     } else if (rango === 'mes') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
+      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0, 0);
       fin.setHours(23, 59, 59, 999);
       dias = Math.max(1, Math.ceil((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
       titulo = 'Este Mes';
     } else if (rango === 'mes_pasado') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1, 0, 0, 0);
+      inicio = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1, 0, 0, 0, 0);
       fin = new Date(ahora.getFullYear(), ahora.getMonth(), 0, 23, 59, 59, 999);
       dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
       const nombreMesPasado = inicio.toLocaleDateString('es-CO', { month: 'long' });
@@ -137,18 +138,36 @@ export default function Metricas() {
     } else if (rango === 'custom') {
       if (fechaCustom.start) {
         const [y, m, d] = fechaCustom.start.split('-').map(Number);
-        inicio = new Date(y, m - 1, d, 0, 0, 0);
+        inicio = new Date(y, m - 1, d, 0, 0, 0, 0);
       } else {
-        inicio = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+        inicio = new Date(ahora.getTime() - 29 * 24 * 60 * 60 * 1000);
+        inicio.setHours(0, 0, 0, 0);
       }
+
       if (fechaCustom.end) {
         const [y, m, d] = fechaCustom.end.split('-').map(Number);
-        fin = new Date(y, m - 1, d, 23, 59, 59);
+        fin = new Date(y, m - 1, d, 23, 59, 59, 999);
+      } else if (fechaCustom.start) {
+        // Si sólo se ha seleccionado el día de inicio, filtramos ese día completo
+        const [y, m, d] = fechaCustom.start.split('-').map(Number);
+        fin = new Date(y, m - 1, d, 23, 59, 59, 999);
       } else {
-        fin = new Date();
+        fin = new Date(ahora);
+        fin.setHours(23, 59, 59, 999);
       }
-      dias = Math.max(1, Math.ceil((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
-      titulo = `Personalizado (${fechaCustom.start || '...'} a ${fechaCustom.end || '...'})`;
+
+      dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
+
+      if (fechaCustom.start && fechaCustom.end) {
+        const [sy, sm, sd] = fechaCustom.start.split('-');
+        const [ey, em, ed] = fechaCustom.end.split('-');
+        titulo = `Rango (${sd}/${sm}/${sy} a ${ed}/${em}/${ey})`;
+      } else if (fechaCustom.start) {
+        const [sy, sm, sd] = fechaCustom.start.split('-');
+        titulo = `Día (${sd}/${sm}/${sy})`;
+      } else {
+        titulo = 'Rango Personalizado';
+      }
     }
 
     const filtradas = minutas.filter((m) => {
@@ -435,7 +454,10 @@ export default function Metricas() {
           </button>
           <button
             className={`filter-range-btn ${rango === 'custom' ? 'active' : ''}`}
-            onClick={() => setRango('custom')}
+            onClick={() => {
+              setRango('custom');
+              setClaveSelectorPersonalizado((c) => c + 1);
+            }}
           >
             <Calendar size={13} />
             <span>Rango</span>
@@ -445,6 +467,8 @@ export default function Metricas() {
         {rango === 'custom' && (
           <div className="custom-datepicker-row animate-fade-in">
             <PremiumDatePicker
+              key={claveSelectorPersonalizado}
+              abiertoPorDefecto={true}
               startDate={fechaCustom.start}
               endDate={fechaCustom.end}
               onChange={(start, end) => setFechaCustom({ start, end })}

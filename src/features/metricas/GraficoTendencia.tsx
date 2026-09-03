@@ -85,15 +85,16 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     if (nivel === 'mes') {
       const mesesMap = new Map<string, ItemGrafico>();
       
-      // Inicializar meses en el rango
-      const cur = new Date(inicioEfectivo.getFullYear(), inicioEfectivo.getMonth(), 1);
-      const endLimit = new Date(finEfectivo.getFullYear(), finEfectivo.getMonth(), 1);
+      // Inicializar meses en el rango con salvaguarda
+      const cur = new Date(inicioEfectivo.getFullYear(), inicioEfectivo.getMonth(), 1, 0, 0, 0, 0);
+      const endLimit = new Date(finEfectivo.getFullYear(), finEfectivo.getMonth(), 1, 0, 0, 0, 0);
+      let maxIteracionesMes = 120;
 
-      while (cur <= endLimit) {
+      while (cur <= endLimit && maxIteracionesMes-- > 0) {
         const y = cur.getFullYear();
         const m = cur.getMonth();
         const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-        const mesStart = new Date(y, m, 1, 0, 0, 0);
+        const mesStart = new Date(y, m, 1, 0, 0, 0, 0);
         const mesEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
         const label = MESES_NOMBRES[m];
 
@@ -132,9 +133,11 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     if (nivel === 'semana') {
       const semanasList: ItemGrafico[] = [];
       let iter = new Date(inicioEfectivo);
+      iter.setHours(0, 0, 0, 0);
       let semIdx = 1;
+      let maxIteracionesSemana = 250;
 
-      while (iter <= finEfectivo) {
+      while (iter <= finEfectivo && maxIteracionesSemana-- > 0) {
         const semStart = new Date(iter);
         semStart.setHours(0, 0, 0, 0);
 
@@ -142,7 +145,9 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
         const semEnd = new Date(semStart);
         semEnd.setDate(semEnd.getDate() + 6);
         semEnd.setHours(23, 59, 59, 999);
-        if (semEnd > finEfectivo) {
+        
+        const alcanzaFin = semEnd >= finEfectivo;
+        if (alcanzaFin) {
           semEnd.setTime(finEfectivo.getTime());
         }
 
@@ -161,8 +166,12 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
           fechaFin: semEnd
         });
 
+        if (alcanzaFin) {
+          break;
+        }
+
         semIdx++;
-        iter = new Date(semEnd.getTime() + 1000);
+        iter.setDate(iter.getDate() + 7);
         iter.setHours(0, 0, 0, 0);
       }
 
@@ -186,8 +195,9 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     const diasMap = new Map<string, ItemGrafico>();
     let diaIter = new Date(inicioEfectivo);
     diaIter.setHours(0, 0, 0, 0);
+    let maxIteracionesDia = 400;
 
-    while (diaIter <= finEfectivo) {
+    while (diaIter <= finEfectivo && maxIteracionesDia-- > 0) {
       const key = obtenerClaveFechaColombia(diaIter);
       const dStart = new Date(diaIter);
       dStart.setHours(0, 0, 0, 0);
@@ -210,6 +220,7 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
       });
 
       diaIter.setDate(diaIter.getDate() + 1);
+      diaIter.setHours(0, 0, 0, 0);
     }
 
     minutasEnRango.forEach((m) => {
