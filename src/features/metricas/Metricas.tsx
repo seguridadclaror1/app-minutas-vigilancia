@@ -10,17 +10,26 @@ import {
   Building2,
   AlertTriangle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Home,
   ClipboardList,
-  Power
+  Power,
+  Search,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  User,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import type { Minuta, Sede, TipoNovedad } from '../../types/database';
+import { formatearFechaHoraColombia } from '../../utils/fechasColombia';
 import PremiumDatePicker from '../../components/PremiumDatePicker';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import GraficoTendencia from './GraficoTendencia';
-import { descargarReporteExcel, type MinutaReporte } from './exportadorReporte';
+import { descargarReporteExcel, type MinutaReporte, type PuestoAuditoriaReporte } from './exportadorReporte';
 import './Metricas.css';
 
 interface MinutaAnalitica extends Omit<Minuta, 'perfiles' | 'sedes' | 'tipos_novedad'> {
@@ -30,6 +39,19 @@ interface MinutaAnalitica extends Omit<Minuta, 'perfiles' | 'sedes' | 'tipos_nov
 }
 
 type RangoPredefinido = 'hoy' | '7d' | 'mes' | 'mes_pasado' | 'trimestre' | '30d' | 'custom';
+
+type EstadoPuesto = 'inactivo' | 'bajo' | 'activo';
+
+interface PuestoAuditoria {
+  id: string;
+  nombre: string;
+  totalPeriodo: number;
+  promedioDiario: string;
+  estado: EstadoPuesto;
+  ultimoRegistroFecha: string | null;
+  ultimoVigilanteNombre: string | null;
+  ultimoVigilanteCedula: string | null;
+}
 
 export default function Metricas() {
   const navigate = useNavigate();
@@ -53,6 +75,7 @@ export default function Metricas() {
 
   // Estados de datos
   const [minutas, setMinutas] = useState<MinutaAnalitica[]>([]);
+  const [todasLasSedes, setTodasLasSedes] = useState<Sede[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
 
@@ -61,29 +84,42 @@ export default function Metricas() {
   const [fechaCustom, setFechaCustom] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [claveSelectorPersonalizado, setClaveSelectorPersonalizado] = useState(0);
 
+  // Estados de Filtros de Auditoría de Puestos
+  const [filtroEstadoPuesto, setFiltroEstadoPuesto] = useState<'todos' | 'inactivo' | 'bajo' | 'activo'>('todos');
+  const [busquedaPuesto, setBusquedaPuesto] = useState('');
+
   // ─── Carga de datos ───────────────────────────────────────────
   const fetchDatos = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('minutas')
-        .select(`
-          id,
-          usuario_id,
-          sede_id,
-          tipo_novedad_id,
-          fecha_hora,
-          descripcion,
-          sedes (id, nombre),
-          tipos_novedad (id, nombre),
-          perfiles (id, nombre, cedula)
-        `)
-        .order('fecha_hora', { ascending: false });
+      const [minutasRes, sedesRes] = await Promise.all([
+        supabase
+          .from('minutas')
+          .select(`
+            id,
+            usuario_id,
+            sede_id,
+            tipo_novedad_id,
+            fecha_hora,
+            descripcion,
+            sedes (id, nombre),
+            tipos_novedad (id, nombre),
+            perfiles (id, nombre, cedula)
+          `)
+          .order('fecha_hora', { ascending: false }),
+        supabase
+          .from('sedes')
+          .select('id, nombre')
+          .order('nombre')
+      ]);
 
-      if (error) throw error;
-      setMinutas((data as any[]) ?? []);
+      if (minutasRes.error) throw minutasRes.error;
+      if (sedesRes.error) throw sedesRes.error;
+
+      setMinutas((minutasRes.data as any[]) ?? []);
+      setTodasLasSedes((sedesRes.data as Sede[]) ?? []);
     } catch (err) {
-      console.error('Error cargando minutas para métricas:', err);
+      console.error('Error cargando datos para métricas:', err);
     } finally {
       setLoading(false);
     }
@@ -276,10 +312,110 @@ export default function Metricas() {
     };
   }, [minutasFiltradas, diasEnRango]);
 
+  // ─── Auditoría y Seguimiento de Puestos ────────────────────────
+  const { puestosAuditoria, conteoInactivos, conteoBajos, conteoActivos } = useMemo(() => {
+    // 1. Mapeo de minutas por sede en el periodo filtrado
+    const conteoPeriodoMap = new Map<string, number>();
+    minutasFiltradas.forEach((m) => {
+      const sedeId = m.sede_id || m.sedes?.id;
+      if (sedeId) {
+        conteoPeriodoMap.set(sedeId, (conteoPeriodoMap.get(sedeId) || 0) + 1);
+      }
+    });
+
+    // 2. Mapeo de última actividad histórica por sede (de la lista total de minutas ya ordenada descendente)
+    const ultimaActividadMap = new Map<string, { fecha: string; vigilante: string; cedula: string }>();
+    minutas.forEach((m) => {
+      const sedeId = m.sede_id || m.sedes?.id;
+      if (sedeId && !ultimaActividadMap.has(sedeId)) {
+        ultimaActividadMap.set(sedeId, {
+          fecha: m.fecha_hora,
+          vigilante: m.perfiles?.nombre || '—',
+          cedula: m.perfiles?.cedula || '—'
+        });
+      }
+    });
+
+    let inactivos = 0;
+    let bajos = 0;
+    let activos = 0;
+
+    const lista: PuestoAuditoria[] = todasLasSedes.map((sede) => {
+      const totalPeriodo = conteoPeriodoMap.get(sede.id) || 0;
+      const prom = totalPeriodo > 0 ? (totalPeriodo / diasEnRango).toFixed(1) : '0';
+
+      let estado: EstadoPuesto = 'activo';
+      if (totalPeriodo === 0) {
+        estado = 'inactivo';
+        inactivos++;
+      } else if (diasEnRango === 1 ? totalPeriodo <= 2 : totalPeriodo < diasEnRango) {
+        estado = 'bajo';
+        bajos++;
+      } else {
+        estado = 'activo';
+        activos++;
+      }
+
+      const ult = ultimaActividadMap.get(sede.id);
+
+      return {
+        id: sede.id,
+        nombre: sede.nombre,
+        totalPeriodo,
+        promedioDiario: prom,
+        estado,
+        ultimoRegistroFecha: ult?.fecha || null,
+        ultimoVigilanteNombre: ult?.vigilante || null,
+        ultimoVigilanteCedula: ult?.cedula || null
+      };
+    });
+
+    // Ordenar: primero inactivos (0 registros), luego con baja actividad, y dentro por menor cantidad
+    lista.sort((a, b) => {
+      const ordenEstado: Record<EstadoPuesto, number> = { inactivo: 0, bajo: 1, activo: 2 };
+      if (ordenEstado[a.estado] !== ordenEstado[b.estado]) {
+        return ordenEstado[a.estado] - ordenEstado[b.estado];
+      }
+      return a.totalPeriodo - b.totalPeriodo || a.nombre.localeCompare(b.nombre);
+    });
+
+    return {
+      puestosAuditoria: lista,
+      conteoInactivos: inactivos,
+      conteoBajos: bajos,
+      conteoActivos: activos
+    };
+  }, [todasLasSedes, minutasFiltradas, minutas, diasEnRango]);
+
+  const puestosFiltrados = useMemo(() => {
+    return puestosAuditoria.filter((p) => {
+      const coincideEstado = filtroEstadoPuesto === 'todos' || p.estado === filtroEstadoPuesto;
+      const coincideBusqueda = !busquedaPuesto.trim() || p.nombre.toLowerCase().includes(busquedaPuesto.trim().toLowerCase());
+      return coincideEstado && coincideBusqueda;
+    });
+  }, [puestosAuditoria, filtroEstadoPuesto, busquedaPuesto]);
+
+  // ─── Paginación de Puestos (Por defecto 10 registros) ────────
+  const [tamanoPaginaPuestos, setTamanoPaginaPuestos] = useState(10);
+  const [paginaActualPuestos, setPaginaActualPuestos] = useState(1);
+
+  // Reiniciar a la primera página si cambia el filtro o la búsqueda
+  useEffect(() => {
+    setPaginaActualPuestos(1);
+  }, [filtroEstadoPuesto, busquedaPuesto]);
+
+  const totalPaginasPuestos = Math.ceil(puestosFiltrados.length / tamanoPaginaPuestos) || 1;
+  const paginaSeguraPuestos = Math.min(Math.max(1, paginaActualPuestos), totalPaginasPuestos);
+
+  const puestosPaginados = useMemo(() => {
+    const inicio = (paginaSeguraPuestos - 1) * tamanoPaginaPuestos;
+    return puestosFiltrados.slice(inicio, inicio + tamanoPaginaPuestos);
+  }, [puestosFiltrados, paginaSeguraPuestos, tamanoPaginaPuestos]);
+
   // ─── Exportar a Excel ─────────────────────────────────────────
   const handleExportarExcel = async () => {
-    if (minutasFiltradas.length === 0) {
-      alert('No hay registros en el periodo seleccionado para exportar.');
+    if (minutasFiltradas.length === 0 && puestosAuditoria.length === 0) {
+      alert('No hay datos en el periodo seleccionado para exportar.');
       return;
     }
     setExportando(true);
@@ -292,7 +428,18 @@ export default function Metricas() {
         tipo: m.tipos_novedad?.nombre || '—',
         descripcion: m.descripcion || ''
       }));
-      await descargarReporteExcel(dataExport, periodoTitulo);
+
+      const puestosExport: PuestoAuditoriaReporte[] = puestosAuditoria.map((p) => ({
+        sede: p.nombre,
+        estado: p.estado === 'inactivo' ? 'Sin Actividad (0)' : (p.estado === 'bajo' ? 'Baja Actividad' : 'Activo / Conforme'),
+        totalPeriodo: p.totalPeriodo,
+        promedioDiario: p.promedioDiario,
+        ultimaFecha: p.ultimoRegistroFecha ? formatearFechaHoraColombia(p.ultimoRegistroFecha) : 'Sin registros previos',
+        ultimoVigilante: p.ultimoVigilanteNombre || '—',
+        cedula: p.ultimoVigilanteCedula || '—'
+      }));
+
+      await descargarReporteExcel(dataExport, periodoTitulo, puestosExport);
     } catch (err) {
       console.error('Error exportando Excel:', err);
       alert('Hubo un error al generar el archivo Excel.');
@@ -546,6 +693,40 @@ export default function Metricas() {
                   <span>📍 {sedeTop.count} registros ({sedeTop.porcentaje}% del total)</span>
                 </div>
               </div>
+
+              {/* Tarjeta 4: Control y Auditoría de Puestos */}
+              <div 
+                className={`kpi-card ${conteoInactivos > 0 ? 'kpi-danger' : (conteoBajos > 0 ? 'kpi-warning' : '')}`}
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  const elemento = document.getElementById('seccion-auditoria-puestos');
+                  if (elemento) elemento.scrollIntoView({ behavior: 'smooth' });
+                  if (conteoInactivos > 0) setFiltroEstadoPuesto('inactivo');
+                  else if (conteoBajos > 0) setFiltroEstadoPuesto('bajo');
+                  else setFiltroEstadoPuesto('todos');
+                }}
+                title="Hacer clic para ver auditoría de puestos"
+              >
+                <div className="kpi-card-header">
+                  <span className="kpi-tag">Control de Puestos</span>
+                  {conteoInactivos > 0 ? (
+                    <ShieldAlert size={18} color="#da2d34" />
+                  ) : conteoBajos > 0 ? (
+                    <AlertTriangle size={18} color="#f59e0b" />
+                  ) : (
+                    <CheckCircle2 size={18} color="#00875a" />
+                  )}
+                </div>
+                <div className="kpi-main-metric">
+                  <span className={`kpi-number ${conteoInactivos > 0 ? 'text-danger' : (conteoBajos > 0 ? 'text-alert' : 'text-success')}`}>
+                    {conteoInactivos + conteoBajos}
+                  </span>
+                  <span className="kpi-unit">en observación</span>
+                </div>
+                <div className="kpi-sub-pill">
+                  <span>🔴 {conteoInactivos} sin registro • 🟡 {conteoBajos} bajo</span>
+                </div>
+              </div>
             </div>
 
             {/* ── FILA 2: Gráfico de Tendencia Jerárquico ── */}
@@ -643,6 +824,240 @@ export default function Metricas() {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* ── FILA 4: Auditoría y Seguimiento de Puestos de Vigilancia (Al final) ── */}
+            <div id="seccion-auditoria-puestos" className="puestos-section-card">
+              <div className="section-card-header">
+                <div className="section-header-title-group">
+                  <div className="section-icon-badge">
+                    <Building2 size={20} color="#da2d34" />
+                  </div>
+                  <div>
+                    <h3>Auditoría y Seguimiento de Puestos de Vigilancia</h3>
+                    <span className="section-subtitle">
+                      Control de digitación y cumplimiento por sede en: {periodoTitulo}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Badge resumen de alerta */}
+                {(conteoInactivos > 0 || conteoBajos > 0) && (
+                  <div className="puestos-alert-pill">
+                    <AlertTriangle size={14} color="#da2d34" />
+                    <span>
+                      {conteoInactivos > 0 ? `${conteoInactivos} sin registrar` : ''}
+                      {conteoInactivos > 0 && conteoBajos > 0 ? ' • ' : ''}
+                      {conteoBajos > 0 ? `${conteoBajos} baja digitación` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Barra de Filtros: Buscador a la izquierda, Píldoras a la derecha */}
+              <div className="puestos-toolbar">
+                <div className="puestos-search-box">
+                  <Search size={14} className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Buscar puesto o sede..."
+                    value={busquedaPuesto}
+                    onChange={(e) => setBusquedaPuesto(e.target.value)}
+                  />
+                  {busquedaPuesto && (
+                    <button className="clear-search-btn" onClick={() => setBusquedaPuesto('')} title="Limpiar búsqueda">
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="puestos-status-pills">
+                  <button
+                    className={`puesto-filter-pill ${filtroEstadoPuesto === 'todos' ? 'active' : ''}`}
+                    onClick={() => setFiltroEstadoPuesto('todos')}
+                  >
+                    <span>Todos los Puestos</span>
+                    <span className="pill-badge">{puestosAuditoria.length}</span>
+                  </button>
+
+                  <button
+                    className={`puesto-filter-pill pill-danger ${filtroEstadoPuesto === 'inactivo' ? 'active' : ''}`}
+                    onClick={() => setFiltroEstadoPuesto('inactivo')}
+                  >
+                    <span className="status-dot dot-red" />
+                    <span>Sin Actividad (0)</span>
+                    <span className="pill-badge badge-danger">{conteoInactivos}</span>
+                  </button>
+
+                  <button
+                    className={`puesto-filter-pill pill-warning ${filtroEstadoPuesto === 'bajo' ? 'active' : ''}`}
+                    onClick={() => setFiltroEstadoPuesto('bajo')}
+                  >
+                    <span className="status-dot dot-yellow" />
+                    <span>Baja Digitación</span>
+                    <span className="pill-badge badge-warning">{conteoBajos}</span>
+                  </button>
+
+                  <button
+                    className={`puesto-filter-pill pill-success ${filtroEstadoPuesto === 'activo' ? 'active' : ''}`}
+                    onClick={() => setFiltroEstadoPuesto('activo')}
+                  >
+                    <span className="status-dot dot-green" />
+                    <span>Conforme / Activo</span>
+                    <span className="pill-badge badge-success">{conteoActivos}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista / Tabla de Puestos */}
+              <div className="puestos-grid-container">
+                {puestosFiltrados.length === 0 ? (
+                  <div className="puestos-empty-state">
+                    <CheckCircle2 size={32} color="#00875a" />
+                    <p>No se encontraron puestos bajo este criterio de filtro.</p>
+                  </div>
+                ) : (
+                  <div className="puestos-table-wrapper">
+                    <table className="puestos-table">
+                      <thead>
+                        <tr>
+                          <th className="th-sede">Sede</th>
+                          <th>Estado</th>
+                          <th>Minutas en Periodo</th>
+                          <th>Promedio / Día</th>
+                          <th>Última Actividad Registrada</th>
+                          <th>Último Vigilante</th>
+                          <th style={{ textAlign: 'center' }}>Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {puestosPaginados.map((p) => (
+                          <tr key={p.id} className={`puesto-row puesto-${p.estado}`}>
+                            <td className="puesto-col-name">
+                              <Building2 size={16} className="puesto-icon" />
+                              <strong>{p.nombre}</strong>
+                            </td>
+                            <td>
+                              {p.estado === 'inactivo' && (
+                                <span className="puesto-badge badge-inactivo">
+                                  <span className="status-dot dot-red" /> Sin registros
+                                </span>
+                              )}
+                              {p.estado === 'bajo' && (
+                                <span className="puesto-badge badge-bajo">
+                                  <span className="status-dot dot-yellow" /> Baja digitación
+                                </span>
+                              )}
+                              {p.estado === 'activo' && (
+                                <span className="puesto-badge badge-activo">
+                                  <span className="status-dot dot-green" /> Conforme
+                                </span>
+                              )}
+                            </td>
+                            <td className="puesto-col-count">
+                              <span className={`count-number ${p.totalPeriodo === 0 ? 'text-zero' : ''}`}>
+                                {p.totalPeriodo}
+                              </span>{' '}
+                              minutas
+                            </td>
+                            <td className="puesto-col-avg">
+                              {p.promedioDiario} / día
+                            </td>
+                            <td className="puesto-col-fecha">
+                              {p.ultimoRegistroFecha ? (
+                                <div className="fecha-vig-wrapper">
+                                  <Clock size={13} />
+                                  <span>{formatearFechaHoraColombia(p.ultimoRegistroFecha)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted">Sin historial previo</span>
+                              )}
+                            </td>
+                            <td className="puesto-col-vig">
+                              {p.ultimoVigilanteNombre ? (
+                                <div className="vig-info-stacked">
+                                  <div className="vig-name-row">
+                                    <User size={13} className="vig-icon" />
+                                    <span className="vig-name">{p.ultimoVigilanteNombre}</span>
+                                  </div>
+                                  {p.ultimoVigilanteCedula && p.ultimoVigilanteCedula !== '—' && (
+                                    <span className="vig-cc">CC: {p.ultimoVigilanteCedula}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted">—</span>
+                              )}
+                            </td>
+                            <td className="puesto-col-action" style={{ textAlign: 'center' }}>
+                              <button
+                                className="btn-seguimiento-puesto"
+                                onClick={() => navigate(`/seguimiento?sede=${encodeURIComponent(p.id)}`)}
+                                title={`Ver seguimiento de minutas de ${p.nombre}`}
+                              >
+                                <Eye size={13} />
+                                <span>Ver Bitácora</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* ── Barra de paginación de Puestos ──────── */}
+                    <div className="puestos-pagination">
+                      {/* Selector de filas */}
+                      <div className="puestos-page-size">
+                        <span>Mostrar</span>
+                        <select 
+                          className="puestos-native-select"
+                          value={tamanoPaginaPuestos}
+                          onChange={(e) => {
+                            setTamanoPaginaPuestos(Number(e.target.value));
+                            setPaginaActualPuestos(1);
+                          }}
+                        >
+                          <option value="5">5</option>
+                          <option value="10">10</option>
+                          <option value="20">20</option>
+                          <option value="50">50</option>
+                          <option value="100">100</option>
+                        </select>
+                        <span>filas</span>
+                      </div>
+
+                      {/* Navegación */}
+                      <div className="puestos-page-nav">
+                        <button
+                          className="puestos-page-btn"
+                          onClick={() => setPaginaActualPuestos((p) => Math.max(1, p - 1))}
+                          disabled={paginaSeguraPuestos === 1}
+                          aria-label="Página anterior"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+
+                        <span className="puestos-page-info">
+                          {paginaSeguraPuestos} / {totalPaginasPuestos}
+                        </span>
+
+                        <button
+                          className="puestos-page-btn"
+                          onClick={() => setPaginaActualPuestos((p) => Math.min(totalPaginasPuestos, p + 1))}
+                          disabled={paginaSeguraPuestos === totalPaginasPuestos}
+                          aria-label="Página siguiente"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+
+                      {/* Total */}
+                      <span className="puestos-total-label">
+                        {puestosFiltrados.length} reg.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
