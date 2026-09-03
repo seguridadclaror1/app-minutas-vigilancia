@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Search, 
@@ -40,6 +40,8 @@ interface DetalleMinuta extends MinutaConRelaciones {
 
 export default function SeguimientoMinutas() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sedeParam = searchParams.get('sede') || '';
   const { perfil, signOut } = useAuth();
 
   // Estado del Dropdown de Perfil
@@ -69,9 +71,17 @@ export default function SeguimientoMinutas() {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [fechaFiltro, setFechaFiltro] = useState<{ start: string; end: string }>({ start: '', end: '' });
-  const [sedeFiltro, setSedeFiltro] = useState('');
+  const [sedeFiltro, setSedeFiltro] = useState(sedeParam);
   const [tipoFiltro, setTipoFiltro] = useState('');
-  const [showFiltros, setShowFiltros] = useState(false);
+  const [showFiltros, setShowFiltros] = useState(Boolean(sedeParam));
+
+  useEffect(() => {
+    if (sedeParam) {
+      setSedeFiltro(sedeParam);
+      setShowFiltros(true);
+      setCurrentPage(1);
+    }
+  }, [sedeParam]);
 
   // Paginación
   const [pageSize, setPageSize] = useState(10);
