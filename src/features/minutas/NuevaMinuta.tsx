@@ -1,8 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Camera, Image, X, Loader2, Save } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Clock, 
+  Camera, 
+  Image, 
+  X, 
+  Loader2, 
+  Save,
+  Building2,
+  ShieldCheck,
+  RotateCw,
+  Navigation,
+  Lock,
+  MapPin,
+  AlertCircle
+} from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { useGeocerca } from '../../hooks/useGeocerca';
 import PremiumSelect from '../../components/PremiumSelect';
 import { ConfirmacionModal } from './ConfirmacionModal';
 import './NuevaMinuta.css';
@@ -22,6 +38,18 @@ export default function NuevaMinuta() {
 
   const [sedeId, setSedeId] = useState('');
   const [tipoNovedadId, setTipoNovedadId] = useState('');
+
+  // Hook de Geocerca GPS Satelital
+  const geocerca = useGeocerca(sedes);
+
+  // Auto-fijar la sede si la geocerca satelital confirma presencia física en el puesto
+  useEffect(() => {
+    if (geocerca.sedeAutorizada) {
+      setSedeId(geocerca.sedeAutorizada.id);
+    } else {
+      setSedeId('');
+    }
+  }, [geocerca.sedeAutorizada]);
   const [descripcion, setDescripcion] = useState('');
   const [fotos, setFotos] = useState<File[]>([]);
   const [fotoUrls, setFotoUrls] = useState<string[]>([]);
@@ -78,7 +106,13 @@ export default function NuevaMinuta() {
     e.preventDefault();
     setError('');
 
-    if (!sedeId || !tipoNovedadId || !descripcion.trim()) {
+    // Validación estricta: el dispositivo DEBE estar en la sede autorizada por GPS
+    if (!geocerca.estaDentroGeocerca || !geocerca.sedeAutorizada || !sedeId) {
+      setError('Acceso Denegado: Su dispositivo no se encuentra en el puesto de vigilancia autorizado para diligenciar minutas.');
+      return;
+    }
+
+    if (!tipoNovedadId || !descripcion.trim()) {
       setError('Por favor, complete todos los campos obligatorios.');
       return;
     }
@@ -234,16 +268,107 @@ export default function NuevaMinuta() {
             </span>
           </div>
 
+          {/* Panel Inteligente de Geocerca GPS y Sede */}
           <div className="form-group">
-            <label className="form-label">Sede <span className="required-asterisk">*</span></label>
-            <PremiumSelect
-              value={sedeId}
-              onChange={setSedeId}
-              options={sedes.map(sede => ({ value: sede.id, label: sede.nombre }))}
-              placeholder="Seleccione una sede..."
-              searchable={true}
-              disabled={loading}
-            />
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Building2 size={16} color="#da2d34" />
+              <span>Sede de la Novedad <span className="required-asterisk">*</span></span>
+            </label>
+
+            {/* Caso 1: Sede confirmada por GPS (Solo lectura automática) */}
+            {geocerca.estaDentroGeocerca && geocerca.sedeAutorizada ? (
+              <div className="minuta-geocerca-panel geocerca-exito">
+                <div className="geocerca-cabecera">
+                  <div className="geocerca-icono-titulo">
+                    <ShieldCheck size={18} color="#16a34a" />
+                    <span>Sede Confirmada por GPS Satelital</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={geocerca.actualizarUbicacion}
+                    className="btn-gps-recargar"
+                    title="Actualizar señal GPS"
+                    disabled={geocerca.cargandoUbicacion}
+                  >
+                    <RotateCw size={13} style={{ animation: geocerca.cargandoUbicacion ? 'spin 1s linear infinite' : 'none' }} />
+                    <span>{geocerca.cargandoUbicacion ? 'Actualizando...' : 'Actualizar'}</span>
+                  </button>
+                </div>
+                <div className="geocerca-cuerpo">
+                  <div className="sede-readonly-box">
+                    <div className="sede-readonly-info">
+                      <span className="sede-readonly-nombre">{geocerca.sedeAutorizada.nombre}</span>
+                      <div className="geocerca-detalles">
+                        <span className="geocerca-pill">
+                          <Navigation size={12} />
+                          A {geocerca.distanciaMetros ?? 0}m de la garita
+                        </span>
+                        {geocerca.coordenadas?.precision && (
+                          <span className="geocerca-pill">
+                            Precisión: ±{geocerca.coordenadas.precision}m
+                          </span>
+                        )}
+                        <span className="geocerca-pill bloqueo">
+                          <Lock size={12} />
+                          Solo Lectura (Fijada por GPS)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : geocerca.cargandoUbicacion ? (
+              /* Caso 2: Obteniendo señal GPS */
+              <div className="minuta-geocerca-panel geocerca-cargando">
+                <div className="geocerca-cabecera">
+                  <div className="geocerca-icono-titulo">
+                    <MapPin size={18} className="geocerca-animacion-pulso" color="#2563eb" />
+                    <span>Detectando puesto por GPS del dispositivo...</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  Alineando coordenadas con los puestos de vigilancia para fijar la sede automáticamente.
+                </span>
+              </div>
+            ) : (
+              /* Caso 3: Fuera de geocerca o sin señal GPS */
+              <div className="minuta-geocerca-panel geocerca-alerta">
+                <div className="geocerca-cabecera">
+                  <div className="geocerca-icono-titulo">
+                    <AlertCircle size={18} color="#dc2626" />
+                    <span>
+                      {geocerca.errorGps
+                        ? 'Señal GPS no disponible'
+                        : 'Dispositivo fuera de la sede'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={geocerca.actualizarUbicacion}
+                    className="btn-gps-recargar"
+                    title="Reintentar señal GPS"
+                  >
+                    <RotateCw size={13} />
+                    <span>Reintentar GPS</span>
+                  </button>
+                </div>
+                <div className="geocerca-cuerpo">
+                  <span className="geocerca-mensaje-error">
+                    {geocerca.errorGps ?? (
+                      <>
+                        No se detecta presencia física dentro del radio de 150m de ninguna sede autorizada.
+                        {geocerca.sedeMasCercana && (
+                          <> Sede más cercana: <strong>{geocerca.sedeMasCercana.nombre}</strong> (a {geocerca.distanciaMetros}m).</>
+                        )}
+                      </>
+                    )}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#b91c1c', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    ⛔ Por seguridad, no está permitido seleccionar la sede manualmente ni diligenciar minutas fuera del puesto de vigilancia.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -362,12 +487,22 @@ export default function NuevaMinuta() {
           <button
             type="submit"
             className="submit-btn"
-            disabled={loading || !sedeId || !tipoNovedadId || !descripcion.trim()}
+            disabled={loading || geocerca.cargandoUbicacion || !geocerca.estaDentroGeocerca || !geocerca.sedeAutorizada || !sedeId || !tipoNovedadId || !descripcion.trim()}
           >
             {loading ? (
               <>
                 <Loader2 className="spin-icon" size={20} />
                 Guardando...
+              </>
+            ) : geocerca.cargandoUbicacion ? (
+              <>
+                <Loader2 className="spin-icon" size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                Verificando GPS...
+              </>
+            ) : !geocerca.estaDentroGeocerca || !geocerca.sedeAutorizada ? (
+              <>
+                <Lock size={20} />
+                Bloqueado: Fuera del Puesto de Vigilancia
               </>
             ) : (
               <>

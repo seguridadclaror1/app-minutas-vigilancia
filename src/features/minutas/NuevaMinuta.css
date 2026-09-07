@@ -259,3 +259,136 @@
   border-radius: 9999px;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ─── Geocerca GPS Satelital en Nueva Minuta ──────────────── */
+.minuta-geocerca-panel {
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.3s ease;
+  margin-bottom: 6px;
+}
+
+.minuta-geocerca-panel.geocerca-exito {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  color: #166534;
+}
+
+.minuta-geocerca-panel.geocerca-cargando {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+}
+
+.minuta-geocerca-panel.geocerca-alerta {
+  background: #fff1f2;
+  border: 1.5px solid #fecdd3;
+  color: #9f1239;
+}
+
+.geocerca-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.geocerca-icono-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.geocerca-animacion-pulso {
+  animation: pulso-gps-minuta 1.5s infinite;
+}
+
+@keyframes pulso-gps-minuta {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+.btn-gps-recargar {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.2s ease;
+}
+
+.btn-gps-recargar:hover {
+  background: #f1f5f9;
+}
+
+.geocerca-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sede-readonly-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1.5px solid #86efac;
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.sede-readonly-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sede-readonly-nombre {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.geocerca-detalles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.geocerca-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.geocerca-pill.bloqueo {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.geocerca-mensaje-error {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
