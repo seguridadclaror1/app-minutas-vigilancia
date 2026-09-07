@@ -52,7 +52,7 @@ export default function GraficoTendencia({ minutas, fechaInicio, fechaFin, rango
     setFiltroMes(null);
     setFiltroSemana(null);
 
-    if (rangoActual === 'hoy' || rangoActual === '7d') {
+    if (rangoActual === 'hoy' || rangoActual === 'ayer' || rangoActual === '7d') {
       setNivel('dia');
     } else if (rangoActual === 'trimestre') {
       setNivel('mes');

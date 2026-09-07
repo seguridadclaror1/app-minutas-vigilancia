@@ -20,15 +20,18 @@ import {
   CheckCircle2,
   Clock,
   User,
-  Eye
+  Eye,
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import type { Minuta, Sede, TipoNovedad } from '../../types/database';
-import { formatearFechaHoraColombia } from '../../utils/fechasColombia';
+import { formatearFechaHoraColombia, obtenerClaveFechaColombia, ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
 import PremiumDatePicker from '../../components/PremiumDatePicker';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import GraficoTendencia from './GraficoTendencia';
+import SeccionAlmacenamiento from './SeccionAlmacenamiento';
 import { descargarReporteExcel, type MinutaReporte, type PuestoAuditoriaReporte } from './exportadorReporte';
 import './Metricas.css';
 
@@ -38,7 +41,7 @@ interface MinutaAnalitica extends Omit<Minuta, 'perfiles' | 'sedes' | 'tipos_nov
   perfiles: { id: string; nombre: string; cedula: string };
 }
 
-type RangoPredefinido = 'hoy' | '7d' | 'mes' | 'mes_pasado' | 'trimestre' | '30d' | 'custom';
+type RangoPredefinido = 'todos' | 'hoy' | 'ayer' | '7d' | 'mes' | 'mes_pasado' | '30d' | 'trimestre' | 'custom';
 
 type EstadoPuesto = 'inactivo' | 'bajo' | 'activo';
 
@@ -79,14 +82,29 @@ export default function Metricas() {
   const [loading, setLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
 
-  // Estados de Filtro Temporal
-  const [rango, setRango] = useState<RangoPredefinido>('7d');
+  // Estados de Filtro Temporal (por defecto 'todos' para ver todo el historial de minutas)
+  const [rango, setRango] = useState<RangoPredefinido>('todos');
   const [fechaCustom, setFechaCustom] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [claveSelectorPersonalizado, setClaveSelectorPersonalizado] = useState(0);
+
+  // Manejador toggle: si se hace clic en el filtro ya activo, se desactiva y vuelve a 'todos'
+  const handleToggleRango = (nuevoRango: RangoPredefinido) => {
+    if (rango === nuevoRango) {
+      setRango('todos');
+    } else {
+      setRango(nuevoRango);
+      if (nuevoRango === 'custom') {
+        setClaveSelectorPersonalizado((c) => c + 1);
+      }
+    }
+  };
 
   // Estados de Filtros de Auditoría de Puestos
   const [filtroEstadoPuesto, setFiltroEstadoPuesto] = useState<'todos' | 'inactivo' | 'bajo' | 'activo'>('todos');
   const [busquedaPuesto, setBusquedaPuesto] = useState('');
+
+  // Selector de Sección Activa (Operación vs Almacenamiento y Servidor)
+  const [tabActiva, setTabActiva] = useState<'operaciones' | 'almacenamiento'>('operaciones');
 
   // ─── Carga de datos ───────────────────────────────────────────
   const fetchDatos = async () => {
@@ -132,43 +150,65 @@ export default function Metricas() {
   // ─── Filtrado por Rango de Fechas ─────────────────────────────
   const { minutasFiltradas, diasEnRango, periodoTitulo, fechaInicio, fechaFin } = useMemo(() => {
     const ahora = new Date();
+    const claveHoy = obtenerClaveFechaColombia(ahora);
+    const [yH, mH, dH] = claveHoy.split('-').map(Number);
+
     let inicio = new Date();
     let fin = new Date();
-    let dias = 7;
-    let titulo = 'Últimos 7 días';
+    let dias = 1;
+    let titulo = 'Histórico Total';
 
-    if (rango === 'hoy') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
-      fin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
+    if (rango === 'todos') {
+      if (minutas.length > 0) {
+        const marcas = minutas
+          .map((m) => new Date(m.fecha_hora).getTime())
+          .filter((t) => !isNaN(t));
+        if (marcas.length > 0) {
+          inicio = new Date(Math.min(...marcas));
+          inicio.setHours(0, 0, 0, 0);
+        } else {
+          inicio = new Date(yH, mH - 1, dH - 29, 0, 0, 0, 0);
+        }
+      } else {
+        inicio = new Date(yH, mH - 1, dH - 29, 0, 0, 0, 0);
+      }
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
+      dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
+      titulo = 'Histórico Total';
+    } else if (rango === 'hoy') {
+      inicio = new Date(yH, mH - 1, dH, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
       dias = 1;
       titulo = 'Hoy';
+    } else if (rango === 'ayer') {
+      inicio = new Date(yH, mH - 1, dH - 1, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH - 1, 23, 59, 59, 999);
+      dias = 1;
+      titulo = 'Ayer';
     } else if (rango === '7d') {
-      inicio = new Date(ahora.getTime() - 6 * 24 * 60 * 60 * 1000);
-      inicio.setHours(0, 0, 0, 0);
-      fin.setHours(23, 59, 59, 999);
+      inicio = new Date(yH, mH - 1, dH - 6, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
       dias = 7;
       titulo = 'Últimos 7 días';
     } else if (rango === 'mes') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0, 0);
-      fin.setHours(23, 59, 59, 999);
-      dias = Math.max(1, Math.ceil((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
+      inicio = new Date(yH, mH - 1, 1, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
+      dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
       titulo = 'Este Mes';
     } else if (rango === 'mes_pasado') {
-      inicio = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1, 0, 0, 0, 0);
-      fin = new Date(ahora.getFullYear(), ahora.getMonth(), 0, 23, 59, 59, 999);
+      inicio = new Date(yH, mH - 2, 1, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, 0, 23, 59, 59, 999);
       dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
-      const nombreMesPasado = inicio.toLocaleDateString('es-CO', { month: 'long' });
+      const nombreMesPasado = inicio.toLocaleDateString('es-CO', { timeZone: ZONA_HORARIA_COLOMBIA, month: 'long' });
       titulo = `Mes Pasado (${nombreMesPasado.charAt(0).toUpperCase() + nombreMesPasado.slice(1)})`;
     } else if (rango === '30d') {
-      inicio = new Date(ahora.getTime() - 29 * 24 * 60 * 60 * 1000);
-      inicio.setHours(0, 0, 0, 0);
-      fin.setHours(23, 59, 59, 999);
+      inicio = new Date(yH, mH - 1, dH - 29, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
       dias = 30;
       titulo = 'Últimos 30 días';
     } else if (rango === 'trimestre') {
-      inicio = new Date(ahora.getTime() - 89 * 24 * 60 * 60 * 1000);
-      inicio.setHours(0, 0, 0, 0);
-      fin.setHours(23, 59, 59, 999);
+      inicio = new Date(yH, mH - 1, dH - 89, 0, 0, 0, 0);
+      fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
       dias = 90;
       titulo = 'Último Trimestre (90 días)';
     } else if (rango === 'custom') {
@@ -176,20 +216,17 @@ export default function Metricas() {
         const [y, m, d] = fechaCustom.start.split('-').map(Number);
         inicio = new Date(y, m - 1, d, 0, 0, 0, 0);
       } else {
-        inicio = new Date(ahora.getTime() - 29 * 24 * 60 * 60 * 1000);
-        inicio.setHours(0, 0, 0, 0);
+        inicio = new Date(yH, mH - 1, dH - 29, 0, 0, 0, 0);
       }
 
       if (fechaCustom.end) {
         const [y, m, d] = fechaCustom.end.split('-').map(Number);
         fin = new Date(y, m - 1, d, 23, 59, 59, 999);
       } else if (fechaCustom.start) {
-        // Si sólo se ha seleccionado el día de inicio, filtramos ese día completo
         const [y, m, d] = fechaCustom.start.split('-').map(Number);
         fin = new Date(y, m - 1, d, 23, 59, 59, 999);
       } else {
-        fin = new Date(ahora);
-        fin.setHours(23, 59, 59, 999);
+        fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
       }
 
       dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
@@ -207,6 +244,7 @@ export default function Metricas() {
     }
 
     const filtradas = minutas.filter((m) => {
+      if (rango === 'todos') return true;
       const f = new Date(m.fecha_hora);
       return f >= inicio && f <= fin;
     });
@@ -228,7 +266,10 @@ export default function Metricas() {
     topVigilantes
   } = useMemo(() => {
     const total = minutasFiltradas.length;
-    const prom = total > 0 ? (total / diasEnRango).toFixed(1) : '0';
+    const diasParaPromedio = rango === 'todos'
+      ? Math.max(1, new Set(minutasFiltradas.map((m) => obtenerClaveFechaColombia(m.fecha_hora))).size)
+      : diasEnRango;
+    const prom = total > 0 ? (total / diasParaPromedio).toFixed(1) : '0';
 
     let novedadesCount = 0;
     let rondasCount = 0;
@@ -472,6 +513,26 @@ export default function Metricas() {
               <span className="title-text-short">Métricas</span>
             </h1>
           </div>
+
+          <div className="metricas-header-divider" />
+
+          {/* ── Selector de Vistas Integrado en Cabecera ───── */}
+          <div className="view-tabs-container">
+            <button
+              className={`view-tab-btn ${tabActiva === 'operaciones' ? 'active' : ''}`}
+              onClick={() => setTabActiva('operaciones')}
+            >
+              <BarChart3 size={14} />
+              <span>Métricas Operativas</span>
+            </button>
+            <button
+              className={`view-tab-btn ${tabActiva === 'almacenamiento' ? 'active' : ''}`}
+              onClick={() => setTabActiva('almacenamiento')}
+            >
+              <HardDrive size={14} />
+              <span>Almacenamiento</span>
+            </button>
+          </div>
         </div>
 
         <div className="metricas-header-right">
@@ -560,510 +621,538 @@ export default function Metricas() {
         }}
       />
 
-      {/* ── Barra de Filtros Rápidos (Ultra Compacta) ────────────── */}
-      <div className="metricas-filters-bar">
-        <div className="filters-pill-group">
-          <button
-            className={`filter-range-btn ${rango === 'hoy' ? 'active' : ''}`}
-            onClick={() => setRango('hoy')}
-          >
-            Hoy
-          </button>
-          <button
-            className={`filter-range-btn ${rango === '7d' ? 'active' : ''}`}
-            onClick={() => setRango('7d')}
-          >
-            7 Días
-          </button>
-          <button
-            className={`filter-range-btn ${rango === 'mes' ? 'active' : ''}`}
-            onClick={() => setRango('mes')}
-          >
-            Este Mes
-          </button>
-          <button
-            className={`filter-range-btn ${rango === 'mes_pasado' ? 'active' : ''}`}
-            onClick={() => setRango('mes_pasado')}
-          >
-            Mes Pasado
-          </button>
-          <button
-            className={`filter-range-btn ${rango === '30d' ? 'active' : ''}`}
-            onClick={() => setRango('30d')}
-          >
-            30 Días
-          </button>
-          <button
-            className={`filter-range-btn ${rango === 'trimestre' ? 'active' : ''}`}
-            onClick={() => setRango('trimestre')}
-          >
-            Trimestre
-          </button>
-          <button
-            className={`filter-range-btn ${rango === 'custom' ? 'active' : ''}`}
-            onClick={() => {
-              setRango('custom');
-              setClaveSelectorPersonalizado((c) => c + 1);
-            }}
-          >
-            <Calendar size={13} />
-            <span>Rango</span>
-          </button>
-        </div>
 
-        {rango === 'custom' && (
-          <div className="custom-datepicker-row animate-fade-in">
-            <PremiumDatePicker
-              key={claveSelectorPersonalizado}
-              abiertoPorDefecto={true}
-              startDate={fechaCustom.start}
-              endDate={fechaCustom.end}
-              onChange={(start, end) => setFechaCustom({ start, end })}
-            />
-          </div>
-        )}
-      </div>
 
-      {/* ── Contenido Principal del Dashboard ──────────────────────── */}
-      <main className="metricas-main">
-        {loading ? (
-          <div className="metricas-loading">
-            <Loader2 size={36} color="#da2d34" className="spin-icon" />
-            <p>Calculando métricas del sistema...</p>
-          </div>
-        ) : (
-          <div className="dashboard-grid animate-fade-in">
-            
-            {/* ── FILA 1: Tarjetas de KPIs Unificadas ── */}
-            <div className="kpis-row">
-              {/* Tarjeta 1: Total Minutas + Promedio Diario (Unificada) */}
-              <div className="kpi-card kpi-primary">
-                <div className="kpi-card-header">
-                  <span className="kpi-tag">Actividad Total</span>
-                  <BarChart3 size={18} className="kpi-icon-primary" />
-                </div>
-                <div className="kpi-main-metric">
-                  <span className="kpi-number">{totalRegistros}</span>
-                  <span className="kpi-unit">minutas</span>
-                </div>
-                <div className="kpi-sub-pill">
-                  <span className="kpi-avg-icon">⚡</span>
-                  <span className="kpi-avg-text">
-                    Promedio: <strong>{promedioDiario}</strong> / día
-                  </span>
-                </div>
+      {tabActiva === 'operaciones' ? (
+        <main className="metricas-main">
+          {/* ── Barra de Filtros Rápidos con Botón Actualizar Integrado ── */}
+          <div className="storage-filters-bar">
+            <div className="storage-filters-content">
+              <div className="filters-pill-group">
+                <button
+                  className={`filter-range-btn ${rango === 'todos' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('todos')}
+                  title="Mostrar todo el historial de minutas"
+                >
+                  Todo
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'hoy' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('hoy')}
+                >
+                  Hoy
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'ayer' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('ayer')}
+                >
+                  Ayer
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === '7d' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('7d')}
+                >
+                  7 Días
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'mes' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('mes')}
+                >
+                  Este Mes
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'mes_pasado' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('mes_pasado')}
+                >
+                  Mes Pasado
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === '30d' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('30d')}
+                >
+                  30 Días
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'trimestre' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('trimestre')}
+                >
+                  Trimestre
+                </button>
+                <button
+                  className={`filter-range-btn ${rango === 'custom' ? 'active' : ''}`}
+                  onClick={() => handleToggleRango('custom')}
+                >
+                  <Calendar size={13} />
+                  <span>Rango</span>
+                </button>
               </div>
 
-              {/* Tarjeta 2: Novedades vs Rondas */}
-              <div className="kpi-card">
-                <div className="kpi-card-header">
-                  <span className="kpi-tag">Novedades y Rondas</span>
-                  <AlertTriangle size={18} color="#f59e0b" />
-                </div>
-                <div className="kpi-main-metric">
-                  <span className="kpi-number text-alert">{totalNovedades}</span>
-                  <span className="kpi-unit">alertas ({porcentajeNovedades}%)</span>
-                </div>
-                <div className="kpi-progress-track">
-                  <div 
-                    className="kpi-progress-bar" 
-                    style={{ width: `${porcentajeNovedades}%` }}
-                    data-tooltip={`${totalNovedades} Novedades, ${totalRondas} Rondas${totalOtros > 0 ? `, ${totalOtros} Otros tipos` : ''}`}
-                  />
-                </div>
-                <div className="kpi-split-info">
-                  <span>🛡️ {totalRondas} Rondas</span>
-                  <span>🚨 {totalNovedades} Novedades</span>
-                  {totalOtros > 0 && <span>📋 {totalOtros} Otros</span>}
-                </div>
-              </div>
-
-              {/* Tarjeta 3: Sede Principal */}
-              <div className="kpi-card">
-                <div className="kpi-card-header">
-                  <span className="kpi-tag">Sede Más Activa</span>
-                  <Building2 size={18} color="#0284c7" />
-                </div>
-                <div className="kpi-main-metric">
-                  <span className="kpi-sede-name" title={sedeTop.nombre}>
-                    {sedeTop.nombre}
-                  </span>
-                </div>
-                <div className="kpi-sub-pill sede-pill">
-                  <span>📍 {sedeTop.count} registros ({sedeTop.porcentaje}% del total)</span>
-                </div>
-              </div>
-
-              {/* Tarjeta 4: Control y Auditoría de Puestos */}
-              <div 
-                className={`kpi-card ${conteoInactivos > 0 ? 'kpi-danger' : (conteoBajos > 0 ? 'kpi-warning' : '')}`}
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  const elemento = document.getElementById('seccion-auditoria-puestos');
-                  if (elemento) elemento.scrollIntoView({ behavior: 'smooth' });
-                  if (conteoInactivos > 0) setFiltroEstadoPuesto('inactivo');
-                  else if (conteoBajos > 0) setFiltroEstadoPuesto('bajo');
-                  else setFiltroEstadoPuesto('todos');
-                }}
-                title="Hacer clic para ver auditoría de puestos"
+              <button
+                className="btn-refresh-storage"
+                onClick={fetchDatos}
+                disabled={loading}
+                title="Actualizar datos de minutas desde la base de datos"
               >
-                <div className="kpi-card-header">
-                  <span className="kpi-tag">Control de Puestos</span>
-                  {conteoInactivos > 0 ? (
-                    <ShieldAlert size={18} color="#da2d34" />
-                  ) : conteoBajos > 0 ? (
-                    <AlertTriangle size={18} color="#f59e0b" />
-                  ) : (
-                    <CheckCircle2 size={18} color="#00875a" />
-                  )}
-                </div>
-                <div className="kpi-main-metric">
-                  <span className={`kpi-number ${conteoInactivos > 0 ? 'text-danger' : (conteoBajos > 0 ? 'text-alert' : 'text-success')}`}>
-                    {conteoInactivos + conteoBajos}
-                  </span>
-                  <span className="kpi-unit">en observación</span>
-                </div>
-                <div className="kpi-sub-pill">
-                  <span>🔴 {conteoInactivos} sin registro • 🟡 {conteoBajos} bajo</span>
-                </div>
-              </div>
+                <RefreshCw size={13} className={loading ? 'spin-icon' : ''} />
+                <span>Actualizar</span>
+              </button>
             </div>
 
-            {/* ── FILA 2: Gráfico de Tendencia Jerárquico ── */}
-            <div className="chart-section-card">
-              <div className="section-card-header">
-                <h3>Evolución de Registros</h3>
-                <span className="section-subtitle">{periodoTitulo}</span>
+            {rango === 'custom' && (
+              <div className="custom-datepicker-row animate-fade-in">
+                <PremiumDatePicker
+                  key={claveSelectorPersonalizado}
+                  abiertoPorDefecto={true}
+                  startDate={fechaCustom.start}
+                  endDate={fechaCustom.end}
+                  onChange={(start, end) => setFechaCustom({ start, end })}
+                />
               </div>
-              <GraficoTendencia 
-                minutas={minutasFiltradas} 
-                fechaInicio={fechaInicio} 
-                fechaFin={fechaFin} 
-                rangoActual={rango} 
-              />
-            </div>
-
-            {/* ── FILA 3: Distribuciones Compactas (Lado a Lado) ── */}
-            <div className="distributions-row">
-              {/* Desglose por Tipo de Anotación */}
-              <div className="dist-card">
-                <div className="section-card-header">
-                  <h3>Tipos de Anotación</h3>
-                  <span className="section-badge">{distribucionTipos.length} tipos</span>
-                </div>
-                <div className="dist-list">
-                  {distribucionTipos.length === 0 ? (
-                    <p className="dist-empty">Sin registros</p>
-                  ) : (
-                    distribucionTipos.map((t) => (
-                      <div key={t.nombre} className="dist-item">
-                        <div className="dist-item-top">
-                          <span className="dist-item-name">{t.nombre}</span>
-                          <span className="dist-item-val">{t.count} ({t.porcentaje}%)</span>
-                        </div>
-                        <div className="dist-bar-track">
-                          <div
-                            className={`dist-bar-fill ${t.nombre.toLowerCase().includes('novedad') ? 'bar-red' : 'bar-dark'}`}
-                            style={{ width: `${t.porcentaje}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+            )}
+          </div>
+            {loading ? (
+              <div className="metricas-loading">
+                <Loader2 size={36} color="#da2d34" className="spin-icon" />
+                <p>Calculando métricas del sistema...</p>
               </div>
+            ) : (
+              <div className="dashboard-grid animate-fade-in">
 
-              {/* Top Sedes */}
-              <div className="dist-card">
-                <div className="section-card-header">
-                  <h3>Top Sedes con Actividad</h3>
-                  <span className="section-badge">{distribucionSedes.length} sedes</span>
-                </div>
-                <div className="dist-list">
-                  {distribucionSedes.length === 0 ? (
-                    <p className="dist-empty">Sin registros</p>
-                  ) : (
-                    distribucionSedes.map((s, idx) => (
-                      <div key={s.nombre} className="dist-item">
-                        <div className="dist-item-top">
-                          <span className="dist-item-name">
-                            <strong>#{idx + 1}</strong> {s.nombre}
-                          </span>
-                          <span className="dist-item-val">{s.count} ({s.porcentaje}%)</span>
-                        </div>
-                        <div className="dist-bar-track">
-                          <div
-                            className="dist-bar-fill bar-primary"
-                            style={{ width: `${s.porcentaje}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Top Guardias */}
-              <div className="dist-card">
-                <div className="section-card-header">
-                  <h3>Personal Más Activo</h3>
-                  <span className="section-badge">Top Guardias</span>
-                </div>
-                <div className="dist-list">
-                  {topVigilantes.length === 0 ? (
-                    <p className="dist-empty">Sin registros</p>
-                  ) : (
-                    topVigilantes.map((v, idx) => (
-                      <div key={v.nombre} className="guardia-item">
-                        <div className="guardia-rank">#{idx + 1}</div>
-                        <div className="guardia-info">
-                          <span className="guardia-name">{v.nombre}</span>
-                          <span className="guardia-count">{v.count} anotaciones</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ── FILA 4: Auditoría y Seguimiento de Puestos de Vigilancia (Al final) ── */}
-            <div id="seccion-auditoria-puestos" className="puestos-section-card">
-              <div className="section-card-header">
-                <div className="section-header-title-group">
-                  <div className="section-icon-badge">
-                    <Building2 size={20} color="#da2d34" />
-                  </div>
-                  <div>
-                    <h3>Auditoría y Seguimiento de Puestos de Vigilancia</h3>
-                    <span className="section-subtitle">
-                      Control de digitación y cumplimiento por sede en: {periodoTitulo}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Badge resumen de alerta */}
-                {(conteoInactivos > 0 || conteoBajos > 0) && (
-                  <div className="puestos-alert-pill">
-                    <AlertTriangle size={14} color="#da2d34" />
-                    <span>
-                      {conteoInactivos > 0 ? `${conteoInactivos} sin registrar` : ''}
-                      {conteoInactivos > 0 && conteoBajos > 0 ? ' • ' : ''}
-                      {conteoBajos > 0 ? `${conteoBajos} baja digitación` : ''}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Barra de Filtros: Buscador a la izquierda, Píldoras a la derecha */}
-              <div className="puestos-toolbar">
-                <div className="puestos-search-box">
-                  <Search size={14} className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Buscar puesto o sede..."
-                    value={busquedaPuesto}
-                    onChange={(e) => setBusquedaPuesto(e.target.value)}
-                  />
-                  {busquedaPuesto && (
-                    <button className="clear-search-btn" onClick={() => setBusquedaPuesto('')} title="Limpiar búsqueda">
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                <div className="puestos-status-pills">
-                  <button
-                    className={`puesto-filter-pill ${filtroEstadoPuesto === 'todos' ? 'active' : ''}`}
-                    onClick={() => setFiltroEstadoPuesto('todos')}
-                  >
-                    <span>Todos los Puestos</span>
-                    <span className="pill-badge">{puestosAuditoria.length}</span>
-                  </button>
-
-                  <button
-                    className={`puesto-filter-pill pill-danger ${filtroEstadoPuesto === 'inactivo' ? 'active' : ''}`}
-                    onClick={() => setFiltroEstadoPuesto('inactivo')}
-                  >
-                    <span className="status-dot dot-red" />
-                    <span>Sin Actividad (0)</span>
-                    <span className="pill-badge badge-danger">{conteoInactivos}</span>
-                  </button>
-
-                  <button
-                    className={`puesto-filter-pill pill-warning ${filtroEstadoPuesto === 'bajo' ? 'active' : ''}`}
-                    onClick={() => setFiltroEstadoPuesto('bajo')}
-                  >
-                    <span className="status-dot dot-yellow" />
-                    <span>Baja Digitación</span>
-                    <span className="pill-badge badge-warning">{conteoBajos}</span>
-                  </button>
-
-                  <button
-                    className={`puesto-filter-pill pill-success ${filtroEstadoPuesto === 'activo' ? 'active' : ''}`}
-                    onClick={() => setFiltroEstadoPuesto('activo')}
-                  >
-                    <span className="status-dot dot-green" />
-                    <span>Conforme / Activo</span>
-                    <span className="pill-badge badge-success">{conteoActivos}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Lista / Tabla de Puestos */}
-              <div className="puestos-grid-container">
-                {puestosFiltrados.length === 0 ? (
-                  <div className="puestos-empty-state">
-                    <CheckCircle2 size={32} color="#00875a" />
-                    <p>No se encontraron puestos bajo este criterio de filtro.</p>
-                  </div>
-                ) : (
-                  <div className="puestos-table-wrapper">
-                    <table className="puestos-table">
-                      <thead>
-                        <tr>
-                          <th className="th-sede">Sede</th>
-                          <th>Estado</th>
-                          <th>Minutas en Periodo</th>
-                          <th>Promedio / Día</th>
-                          <th>Última Actividad Registrada</th>
-                          <th>Último Vigilante</th>
-                          <th style={{ textAlign: 'center' }}>Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {puestosPaginados.map((p) => (
-                          <tr key={p.id} className={`puesto-row puesto-${p.estado}`}>
-                            <td className="puesto-col-name">
-                              <Building2 size={16} className="puesto-icon" />
-                              <strong>{p.nombre}</strong>
-                            </td>
-                            <td>
-                              {p.estado === 'inactivo' && (
-                                <span className="puesto-badge badge-inactivo">
-                                  <span className="status-dot dot-red" /> Sin registros
-                                </span>
-                              )}
-                              {p.estado === 'bajo' && (
-                                <span className="puesto-badge badge-bajo">
-                                  <span className="status-dot dot-yellow" /> Baja digitación
-                                </span>
-                              )}
-                              {p.estado === 'activo' && (
-                                <span className="puesto-badge badge-activo">
-                                  <span className="status-dot dot-green" /> Conforme
-                                </span>
-                              )}
-                            </td>
-                            <td className="puesto-col-count">
-                              <span className={`count-number ${p.totalPeriodo === 0 ? 'text-zero' : ''}`}>
-                                {p.totalPeriodo}
-                              </span>{' '}
-                              minutas
-                            </td>
-                            <td className="puesto-col-avg">
-                              {p.promedioDiario} / día
-                            </td>
-                            <td className="puesto-col-fecha">
-                              {p.ultimoRegistroFecha ? (
-                                <div className="fecha-vig-wrapper">
-                                  <Clock size={13} />
-                                  <span>{formatearFechaHoraColombia(p.ultimoRegistroFecha)}</span>
-                                </div>
-                              ) : (
-                                <span className="text-muted">Sin historial previo</span>
-                              )}
-                            </td>
-                            <td className="puesto-col-vig">
-                              {p.ultimoVigilanteNombre ? (
-                                <div className="vig-info-stacked">
-                                  <div className="vig-name-row">
-                                    <User size={13} className="vig-icon" />
-                                    <span className="vig-name">{p.ultimoVigilanteNombre}</span>
-                                  </div>
-                                  {p.ultimoVigilanteCedula && p.ultimoVigilanteCedula !== '—' && (
-                                    <span className="vig-cc">CC: {p.ultimoVigilanteCedula}</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td className="puesto-col-action" style={{ textAlign: 'center' }}>
-                              <button
-                                className="btn-seguimiento-puesto"
-                                onClick={() => navigate(`/seguimiento?sede=${encodeURIComponent(p.id)}`)}
-                                title={`Ver seguimiento de minutas de ${p.nombre}`}
-                              >
-                                <Eye size={13} />
-                                <span>Ver Bitácora</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* ── Barra de paginación de Puestos ──────── */}
-                    <div className="puestos-pagination">
-                      {/* Selector de filas */}
-                      <div className="puestos-page-size">
-                        <span>Mostrar</span>
-                        <select 
-                          className="puestos-native-select"
-                          value={tamanoPaginaPuestos}
-                          onChange={(e) => {
-                            setTamanoPaginaPuestos(Number(e.target.value));
-                            setPaginaActualPuestos(1);
-                          }}
-                        >
-                          <option value="5">5</option>
-                          <option value="10">10</option>
-                          <option value="20">20</option>
-                          <option value="50">50</option>
-                          <option value="100">100</option>
-                        </select>
-                        <span>filas</span>
-                      </div>
-
-                      {/* Navegación */}
-                      <div className="puestos-page-nav">
-                        <button
-                          className="puestos-page-btn"
-                          onClick={() => setPaginaActualPuestos((p) => Math.max(1, p - 1))}
-                          disabled={paginaSeguraPuestos === 1}
-                          aria-label="Página anterior"
-                        >
-                          <ChevronLeft size={18} />
-                        </button>
-
-                        <span className="puestos-page-info">
-                          {paginaSeguraPuestos} / {totalPaginasPuestos}
-                        </span>
-
-                        <button
-                          className="puestos-page-btn"
-                          onClick={() => setPaginaActualPuestos((p) => Math.min(totalPaginasPuestos, p + 1))}
-                          disabled={paginaSeguraPuestos === totalPaginasPuestos}
-                          aria-label="Página siguiente"
-                        >
-                          <ChevronRight size={18} />
-                        </button>
-                      </div>
-
-                      {/* Total */}
-                      <span className="puestos-total-label">
-                        {puestosFiltrados.length} reg.
+                {/* ── FILA 1: Tarjetas de KPIs Unificadas ── */}
+                <div className="kpis-row">
+                  {/* Tarjeta 1: Total Minutas + Promedio Diario (Unificada) */}
+                  <div className="kpi-card kpi-primary">
+                    <div className="kpi-card-header">
+                      <span className="kpi-tag">Actividad Total</span>
+                      <BarChart3 size={18} className="kpi-icon-primary" />
+                    </div>
+                    <div className="kpi-main-metric">
+                      <span className="kpi-number">{totalRegistros}</span>
+                      <span className="kpi-unit">minutas</span>
+                    </div>
+                    <div className="kpi-sub-pill">
+                      <span className="kpi-avg-icon">⚡</span>
+                      <span className="kpi-avg-text">
+                        Promedio: <strong>{promedioDiario}</strong> / día
                       </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-          </div>
-        )}
-      </main>
+                  {/* Tarjeta 2: Novedades vs Rondas */}
+                  <div className="kpi-card">
+                    <div className="kpi-card-header">
+                      <span className="kpi-tag">Novedades y Rondas</span>
+                      <AlertTriangle size={18} color="#f59e0b" />
+                    </div>
+                    <div className="kpi-main-metric">
+                      <span className="kpi-number text-alert">{totalNovedades}</span>
+                      <span className="kpi-unit">alertas ({porcentajeNovedades}%)</span>
+                    </div>
+                    <div className="kpi-progress-track">
+                      <div
+                        className="kpi-progress-bar"
+                        style={{ width: `${porcentajeNovedades}%` }}
+                        data-tooltip={`${totalNovedades} Novedades, ${totalRondas} Rondas${totalOtros > 0 ? `, ${totalOtros} Otros tipos` : ''}`}
+                      />
+                    </div>
+                    <div className="kpi-split-info">
+                      <span>🛡️ {totalRondas} Rondas</span>
+                      <span>🚨 {totalNovedades} Novedades</span>
+                      {totalOtros > 0 && <span>📋 {totalOtros} Otros</span>}
+                    </div>
+                  </div>
+
+                  {/* Tarjeta 3: Sede Principal */}
+                  <div className="kpi-card">
+                    <div className="kpi-card-header">
+                      <span className="kpi-tag">Sede Más Activa</span>
+                      <Building2 size={18} color="#0284c7" />
+                    </div>
+                    <div className="kpi-main-metric">
+                      <span className="kpi-sede-name" title={sedeTop.nombre}>
+                        {sedeTop.nombre}
+                      </span>
+                    </div>
+                    <div className="kpi-sub-pill sede-pill">
+                      <span>📍 {sedeTop.count} registros ({sedeTop.porcentaje}% del total)</span>
+                    </div>
+                  </div>
+
+                  {/* Tarjeta 4: Control y Auditoría de Puestos */}
+                  <div
+                    className={`kpi-card ${conteoInactivos > 0 ? 'kpi-danger' : (conteoBajos > 0 ? 'kpi-warning' : '')}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      const elemento = document.getElementById('seccion-auditoria-puestos');
+                      if (elemento) elemento.scrollIntoView({ behavior: 'smooth' });
+                      if (conteoInactivos > 0) setFiltroEstadoPuesto('inactivo');
+                      else if (conteoBajos > 0) setFiltroEstadoPuesto('bajo');
+                      else setFiltroEstadoPuesto('todos');
+                    }}
+                    title="Hacer clic para ver auditoría de puestos"
+                  >
+                    <div className="kpi-card-header">
+                      <span className="kpi-tag">Control de Puestos</span>
+                      {conteoInactivos > 0 ? (
+                        <ShieldAlert size={18} color="#da2d34" />
+                      ) : conteoBajos > 0 ? (
+                        <AlertTriangle size={18} color="#f59e0b" />
+                      ) : (
+                        <CheckCircle2 size={18} color="#00875a" />
+                      )}
+                    </div>
+                    <div className="kpi-main-metric">
+                      <span className={`kpi-number ${conteoInactivos > 0 ? 'text-danger' : (conteoBajos > 0 ? 'text-alert' : 'text-success')}`}>
+                        {conteoInactivos + conteoBajos}
+                      </span>
+                      <span className="kpi-unit">en observación</span>
+                    </div>
+                    <div className="kpi-sub-pill">
+                      <span>🔴 {conteoInactivos} sin registro • 🟡 {conteoBajos} bajo</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── FILA 2: Gráfico de Tendencia Jerárquico ── */}
+                <div className="chart-section-card">
+                  <div className="section-card-header">
+                    <h3>Evolución de Registros</h3>
+                    <span className="section-subtitle">{periodoTitulo}</span>
+                  </div>
+                  <GraficoTendencia
+                    minutas={minutasFiltradas}
+                    fechaInicio={fechaInicio}
+                    fechaFin={fechaFin}
+                    rangoActual={rango}
+                  />
+                </div>
+
+                {/* ── FILA 3: Distribuciones Compactas (Lado a Lado) ── */}
+                <div className="distributions-row">
+                  {/* Desglose por Tipo de Anotación */}
+                  <div className="dist-card">
+                    <div className="section-card-header">
+                      <h3>Tipos de Anotación</h3>
+                      <span className="section-badge">{distribucionTipos.length} tipos</span>
+                    </div>
+                    <div className="dist-list">
+                      {distribucionTipos.length === 0 ? (
+                        <p className="dist-empty">Sin registros</p>
+                      ) : (
+                        distribucionTipos.map((t) => (
+                          <div key={t.nombre} className="dist-item">
+                            <div className="dist-item-top">
+                              <span className="dist-item-name">{t.nombre}</span>
+                              <span className="dist-item-val">{t.count} ({t.porcentaje}%)</span>
+                            </div>
+                            <div className="dist-bar-track">
+                              <div
+                                className={`dist-bar-fill ${t.nombre.toLowerCase().includes('novedad') ? 'bar-red' : 'bar-dark'}`}
+                                style={{ width: `${t.porcentaje}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Top Sedes */}
+                  <div className="dist-card">
+                    <div className="section-card-header">
+                      <h3>Top Sedes con Actividad</h3>
+                      <span className="section-badge">{distribucionSedes.length} sedes</span>
+                    </div>
+                    <div className="dist-list">
+                      {distribucionSedes.length === 0 ? (
+                        <p className="dist-empty">Sin registros</p>
+                      ) : (
+                        distribucionSedes.map((s, idx) => (
+                          <div key={s.nombre} className="dist-item">
+                            <div className="dist-item-top">
+                              <span className="dist-item-name">
+                                <strong>#{idx + 1}</strong> {s.nombre}
+                              </span>
+                              <span className="dist-item-val">{s.count} ({s.porcentaje}%)</span>
+                            </div>
+                            <div className="dist-bar-track">
+                              <div
+                                className="dist-bar-fill bar-primary"
+                                style={{ width: `${s.porcentaje}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Top Guardias */}
+                  <div className="dist-card">
+                    <div className="section-card-header">
+                      <h3>Personal Más Activo</h3>
+                      <span className="section-badge">Top Guardias</span>
+                    </div>
+                    <div className="dist-list">
+                      {topVigilantes.length === 0 ? (
+                        <p className="dist-empty">Sin registros</p>
+                      ) : (
+                        topVigilantes.map((v, idx) => (
+                          <div key={v.nombre} className="guardia-item">
+                            <div className="guardia-rank">#{idx + 1}</div>
+                            <div className="guardia-info">
+                              <span className="guardia-name">{v.nombre}</span>
+                              <span className="guardia-count">{v.count} anotaciones</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── FILA 4: Auditoría y Seguimiento de Puestos de Vigilancia (Al final) ── */}
+                <div id="seccion-auditoria-puestos" className="puestos-section-card">
+                  <div className="section-card-header">
+                    <div className="section-header-title-group">
+                      <div className="section-icon-badge">
+                        <Building2 size={20} color="#da2d34" />
+                      </div>
+                      <div>
+                        <h3>Auditoría y Seguimiento de Puestos de Vigilancia</h3>
+                        <span className="section-subtitle">
+                          Control de digitación y cumplimiento por sede en: {periodoTitulo}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Badge resumen de alerta */}
+                    {(conteoInactivos > 0 || conteoBajos > 0) && (
+                      <div className="puestos-alert-pill">
+                        <AlertTriangle size={14} color="#da2d34" />
+                        <span>
+                          {conteoInactivos > 0 ? `${conteoInactivos} sin registrar` : ''}
+                          {conteoInactivos > 0 && conteoBajos > 0 ? ' • ' : ''}
+                          {conteoBajos > 0 ? `${conteoBajos} baja digitación` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Barra de Filtros: Buscador a la izquierda, Píldoras a la derecha */}
+                  <div className="puestos-toolbar">
+                    <div className="puestos-search-box">
+                      <Search size={14} className="search-icon" />
+                      <input
+                        type="text"
+                        placeholder="Buscar puesto o sede..."
+                        value={busquedaPuesto}
+                        onChange={(e) => setBusquedaPuesto(e.target.value)}
+                      />
+                      {busquedaPuesto && (
+                        <button className="clear-search-btn" onClick={() => setBusquedaPuesto('')} title="Limpiar búsqueda">
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="puestos-status-pills">
+                      <button
+                        className={`puesto-filter-pill ${filtroEstadoPuesto === 'todos' ? 'active' : ''}`}
+                        onClick={() => setFiltroEstadoPuesto('todos')}
+                      >
+                        <span>Todos los Puestos</span>
+                        <span className="pill-badge">{puestosAuditoria.length}</span>
+                      </button>
+
+                      <button
+                        className={`puesto-filter-pill pill-danger ${filtroEstadoPuesto === 'inactivo' ? 'active' : ''}`}
+                        onClick={() => setFiltroEstadoPuesto('inactivo')}
+                      >
+                        <span className="status-dot dot-red" />
+                        <span>Sin Actividad (0)</span>
+                        <span className="pill-badge badge-danger">{conteoInactivos}</span>
+                      </button>
+
+                      <button
+                        className={`puesto-filter-pill pill-warning ${filtroEstadoPuesto === 'bajo' ? 'active' : ''}`}
+                        onClick={() => setFiltroEstadoPuesto('bajo')}
+                      >
+                        <span className="status-dot dot-yellow" />
+                        <span>Baja Digitación</span>
+                        <span className="pill-badge badge-warning">{conteoBajos}</span>
+                      </button>
+
+                      <button
+                        className={`puesto-filter-pill pill-success ${filtroEstadoPuesto === 'activo' ? 'active' : ''}`}
+                        onClick={() => setFiltroEstadoPuesto('activo')}
+                      >
+                        <span className="status-dot dot-green" />
+                        <span>Conforme / Activo</span>
+                        <span className="pill-badge badge-success">{conteoActivos}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lista / Tabla de Puestos */}
+                  <div className="puestos-grid-container">
+                    {puestosFiltrados.length === 0 ? (
+                      <div className="puestos-empty-state">
+                        <CheckCircle2 size={32} color="#00875a" />
+                        <p>No se encontraron puestos bajo este criterio de filtro.</p>
+                      </div>
+                    ) : (
+                      <div className="puestos-table-wrapper">
+                        <table className="puestos-table">
+                          <thead>
+                            <tr>
+                              <th className="th-sede">Sede</th>
+                              <th>Estado</th>
+                              <th>Minutas en Periodo</th>
+                              <th>Promedio / Día</th>
+                              <th>Última Actividad Registrada</th>
+                              <th>Último Vigilante</th>
+                              <th style={{ textAlign: 'center' }}>Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {puestosPaginados.map((p) => (
+                              <tr key={p.id} className={`puesto-row puesto-${p.estado}`}>
+                                <td className="puesto-col-name">
+                                  <Building2 size={16} className="puesto-icon" />
+                                  <strong>{p.nombre}</strong>
+                                </td>
+                                <td>
+                                  {p.estado === 'inactivo' && (
+                                    <span className="puesto-badge badge-inactivo">
+                                      <span className="status-dot dot-red" /> Sin registros
+                                    </span>
+                                  )}
+                                  {p.estado === 'bajo' && (
+                                    <span className="puesto-badge badge-bajo">
+                                      <span className="status-dot dot-yellow" /> Baja digitación
+                                    </span>
+                                  )}
+                                  {p.estado === 'activo' && (
+                                    <span className="puesto-badge badge-activo">
+                                      <span className="status-dot dot-green" /> Conforme
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="puesto-col-count">
+                                  <span className={`count-number ${p.totalPeriodo === 0 ? 'text-zero' : ''}`}>
+                                    {p.totalPeriodo}
+                                  </span>{' '}
+                                  minutas
+                                </td>
+                                <td className="puesto-col-avg">
+                                  {p.promedioDiario} / día
+                                </td>
+                                <td className="puesto-col-fecha">
+                                  {p.ultimoRegistroFecha ? (
+                                    <div className="fecha-vig-wrapper">
+                                      <Clock size={13} />
+                                      <span>{formatearFechaHoraColombia(p.ultimoRegistroFecha)}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted">Sin historial previo</span>
+                                  )}
+                                </td>
+                                <td className="puesto-col-vig">
+                                  {p.ultimoVigilanteNombre ? (
+                                    <div className="vig-info-stacked">
+                                      <div className="vig-name-row">
+                                        <User size={13} className="vig-icon" />
+                                        <span className="vig-name">{p.ultimoVigilanteNombre}</span>
+                                      </div>
+                                      {p.ultimoVigilanteCedula && p.ultimoVigilanteCedula !== '—' && (
+                                        <span className="vig-cc">CC: {p.ultimoVigilanteCedula}</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted">—</span>
+                                  )}
+                                </td>
+                                <td className="puesto-col-action" style={{ textAlign: 'center' }}>
+                                  <button
+                                    className="btn-seguimiento-puesto"
+                                    onClick={() => navigate(`/seguimiento?sede=${encodeURIComponent(p.id)}`)}
+                                    title={`Ver seguimiento de minutas de ${p.nombre}`}
+                                  >
+                                    <Eye size={13} />
+                                    <span>Ver Bitácora</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {/* ── Barra de paginación de Puestos ──────── */}
+                        <div className="puestos-pagination">
+                          {/* Selector de filas */}
+                          <div className="puestos-page-size">
+                            <span>Mostrar</span>
+                            <select
+                              className="puestos-native-select"
+                              value={tamanoPaginaPuestos}
+                              onChange={(e) => {
+                                setTamanoPaginaPuestos(Number(e.target.value));
+                                setPaginaActualPuestos(1);
+                              }}
+                            >
+                              <option value="5">5</option>
+                              <option value="10">10</option>
+                              <option value="20">20</option>
+                              <option value="50">50</option>
+                              <option value="100">100</option>
+                            </select>
+                            <span>filas</span>
+                          </div>
+
+                          {/* Navegación */}
+                          <div className="puestos-page-nav">
+                            <button
+                              className="puestos-page-btn"
+                              onClick={() => setPaginaActualPuestos((p) => Math.max(1, p - 1))}
+                              disabled={paginaSeguraPuestos === 1}
+                              aria-label="Página anterior"
+                            >
+                              <ChevronLeft size={18} />
+                            </button>
+
+                            <span className="puestos-page-info">
+                              {paginaSeguraPuestos} / {totalPaginasPuestos}
+                            </span>
+
+                            <button
+                              className="puestos-page-btn"
+                              onClick={() => setPaginaActualPuestos((p) => Math.min(totalPaginasPuestos, p + 1))}
+                              disabled={paginaSeguraPuestos === totalPaginasPuestos}
+                              aria-label="Página siguiente"
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+
+                          {/* Total */}
+                          <span className="puestos-total-label">
+                            {puestosFiltrados.length} reg.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </main>
+      ) : (
+        <main className="metricas-main">
+          <SeccionAlmacenamiento />
+        </main>
+      )}
     </div>
   );
 }
