@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Camera, 
-  Image as ImageIcon, 
   X, 
   Loader2, 
   Sparkles, 
@@ -95,7 +94,6 @@ export default function LectorSerialCamara({
   const canvas_oculto_ref = useRef<HTMLCanvasElement | null>(null);
 
   const input_camara_nativa_ref = useRef<HTMLInputElement>(null);
-  const input_galeria_ref = useRef<HTMLInputElement>(null);
 
   // Detener la cámara
   const detener_camara = useCallback(() => {
@@ -329,20 +327,7 @@ export default function LectorSerialCamara({
         }}
       />
 
-      {/* Input para seleccionar archivos de galería */}
-      <input
-        type="file"
-        ref={input_galeria_ref}
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) {
-            procesar_archivo(e.target.files[0]);
-          }
-        }}
-      />
-
-      {/* Botones de acción principal */}
+      {/* Botón de acción principal: Exclusivo Escanear con Cámara */}
       {!foto_url_previa && !procesando && !mostrar_visor && (
         <div className="lector-opciones-captura">
           <button
@@ -351,16 +336,7 @@ export default function LectorSerialCamara({
             onClick={() => iniciar_camara_trasera('environment')}
           >
             <Camera size={22} />
-            <span>Escanear con Cámara</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn-captura-galeria"
-            onClick={() => input_galeria_ref.current?.click()}
-          >
-            <ImageIcon size={20} />
-            <span>Subir Foto / Galería</span>
+            <span>Escanear con Cámara en Vivo</span>
           </button>
         </div>
       )}

@@ -128,16 +128,115 @@
   cursor: not-allowed;
 }
 
-/* ─── Barra de Filtros Temporales (Ultra Compacta) ─────────── */
-.metricas-filters-bar {
-  position: relative;
-  z-index: 30;
+/* ─── Selector de Pestañas de Vista (Integrado en el Header) ─── */
+.view-tabs-container {
+  display: inline-flex;
+  align-items: center;
+  background: #fff0ef;
+  border: 1px solid #f1d3d1;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.view-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #5c403e;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.view-tab-btn:hover:not(.active) {
+  background: rgba(218, 45, 52, 0.07);
+  color: #da2d34;
+}
+
+.view-tab-btn.active {
   background: #ffffff;
-  border-bottom: 1px solid #f1d3d1;
-  padding: 8px 16px;
+  color: #da2d34;
+  box-shadow: 0 2px 6px rgba(218, 45, 52, 0.12);
+  font-weight: 700;
+}
+
+.tab-pill-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #da2d34;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.04em;
+  margin-left: 2px;
+}
+
+/* ─── Barra de Filtros Unificada (Métricas Operativas y Almacenamiento) ─── */
+.storage-filters-bar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+}
+
+.metricas-main > .storage-filters-bar {
+  margin-bottom: 16px;
+}
+
+.storage-filters-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.storage-filters-bar .filters-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  flex-wrap: wrap;
+}
+
+.btn-refresh-storage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff8f7;
+  border: 1px solid #e4bdba;
+  color: #5c403e;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.btn-refresh-storage:hover {
+  background: #fff0ef;
+  border-color: #da2d34;
+  color: #da2d34;
+  transform: translateY(-1px);
+}
+
+.btn-refresh-storage:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .filters-pill-group {

@@ -16,6 +16,9 @@ export interface Perfil {
 export interface Sede {
   id: string;
   nombre: string;
+  latitud?: number | null;
+  longitud?: number | null;
+  radio_metros?: number | null;
 }
 
 export interface TipoNovedad {

@@ -10,19 +10,12 @@
 }
 
 .lector-opciones-captura {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
-@media (max-width: 480px) {
-  .lector-opciones-captura {
-    grid-template-columns: 1fr;
-  }
-}
-
-.btn-captura-camara,
-.btn-captura-galeria {
+.btn-captura-camara {
   display: flex;
   align-items: center;
   justify-content: center;
