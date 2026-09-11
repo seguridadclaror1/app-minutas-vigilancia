@@ -93,22 +93,15 @@ export default function SeguimientoMinutas() {
 
   // ─── Fetch catálogos con datos reales ────────────────────────
   const fetchCatalogos = useCallback(async () => {
-    // Solo traemos sedes y tipos que realmente tienen minutas
-    const [{ data: minutasRaw }] = await Promise.all([
-      supabase
-        .from('minutas')
-        .select('sede_id, tipo_novedad_id, sedes(id,nombre), tipos_novedad(id,nombre)'),
-    ]);
-
-    if (minutasRaw) {
-      const sedesMap = new Map<string, Sede>();
-      const tiposMap = new Map<string, TipoNovedad>();
-      for (const m of minutasRaw as any[]) {
-        if (m.sedes)         sedesMap.set(m.sedes.id, m.sedes);
-        if (m.tipos_novedad) tiposMap.set(m.tipos_novedad.id, m.tipos_novedad);
-      }
-      setSedes([...sedesMap.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      setTiposNovedad([...tiposMap.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    try {
+      const [sedesRes, tiposRes] = await Promise.all([
+        supabase.from('sedes').select('id, nombre').order('nombre'),
+        supabase.from('tipos_novedad').select('id, nombre').order('nombre'),
+      ]);
+      if (sedesRes.data) setSedes(sedesRes.data as Sede[]);
+      if (tiposRes.data) setTiposNovedad(tiposRes.data as TipoNovedad[]);
+    } catch (err) {
+      console.error('Error cargando catálogos:', err);
     }
   }, []);
 
@@ -116,22 +109,42 @@ export default function SeguimientoMinutas() {
   const fetchMinutas = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('minutas')
-        .select(`*, sedes(id,nombre), tipos_novedad(id,nombre), perfiles(nombre,cedula)`)
-        .order('fecha_hora', { ascending: false });
+      let todasLasMinutas: MinutaConRelaciones[] = [];
+      let desdeIndice = 0;
+      const TAMANO_LOTE = 1000;
+      let hayMas = true;
 
-      if (fechaFiltro.start) {
-        const { desde, hasta } = obtenerRangoUtcParaFiltroColombia(fechaFiltro.start, fechaFiltro.end);
-        query = query.gte('fecha_hora', desde);
-        query = query.lte('fecha_hora', hasta);
+      while (hayMas) {
+        let query = supabase
+          .from('minutas')
+          .select(`*, sedes(id,nombre), tipos_novedad(id,nombre), perfiles(nombre,cedula)`)
+          .order('fecha_hora', { ascending: false })
+          .range(desdeIndice, desdeIndice + TAMANO_LOTE - 1);
+
+        if (fechaFiltro.start) {
+          const { desde, hasta } = obtenerRangoUtcParaFiltroColombia(fechaFiltro.start, fechaFiltro.end);
+          query = query.gte('fecha_hora', desde);
+          query = query.lte('fecha_hora', hasta);
+        }
+        if (sedeFiltro)  query = query.eq('sede_id', sedeFiltro);
+        if (tipoFiltro)  query = query.eq('tipo_novedad_id', tipoFiltro);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          todasLasMinutas = todasLasMinutas.concat(data as MinutaConRelaciones[]);
+          if (data.length < TAMANO_LOTE) {
+            hayMas = false;
+          } else {
+            desdeIndice += TAMANO_LOTE;
+          }
+        } else {
+          hayMas = false;
+        }
       }
-      if (sedeFiltro)  query = query.eq('sede_id', sedeFiltro);
-      if (tipoFiltro)  query = query.eq('tipo_novedad_id', tipoFiltro);
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setMinutas((data as MinutaConRelaciones[]) ?? []);
+      setMinutas(todasLasMinutas);
     } catch (err) {
       console.error('Error cargando minutas:', err);
     } finally {

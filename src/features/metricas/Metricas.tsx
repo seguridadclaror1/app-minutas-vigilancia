@@ -27,7 +27,12 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../config/supabase';
 import type { Minuta, Sede, TipoNovedad } from '../../types/database';
-import { formatearFechaHoraColombia, obtenerClaveFechaColombia, ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
+import {
+  formatearFechaHoraColombia,
+  obtenerClaveFechaColombia,
+  obtenerRangoUtcParaFiltroColombia,
+  ZONA_HORARIA_COLOMBIA
+} from '../../utils/fechasColombia';
 import PremiumDatePicker from '../../components/PremiumDatePicker';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import GraficoTendencia from './GraficoTendencia';
@@ -110,8 +115,14 @@ export default function Metricas() {
   const fetchDatos = async () => {
     setLoading(true);
     try {
-      const [minutasRes, sedesRes] = await Promise.all([
-        supabase
+      // Paginación por lotes de 1.000 para superar el límite predeterminado de Supabase PostgREST
+      let todasLasMinutas: MinutaAnalitica[] = [];
+      let desdeIndice = 0;
+      const TAMANO_LOTE = 1000;
+      let hayMas = true;
+
+      while (hayMas) {
+        const { data, error } = await supabase
           .from('minutas')
           .select(`
             id,
@@ -124,17 +135,31 @@ export default function Metricas() {
             tipos_novedad (id, nombre),
             perfiles (id, nombre, cedula)
           `)
-          .order('fecha_hora', { ascending: false }),
-        supabase
-          .from('sedes')
-          .select('id, nombre')
-          .order('nombre')
-      ]);
+          .order('fecha_hora', { ascending: false })
+          .range(desdeIndice, desdeIndice + TAMANO_LOTE - 1);
 
-      if (minutasRes.error) throw minutasRes.error;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          todasLasMinutas = todasLasMinutas.concat(data as any[]);
+          if (data.length < TAMANO_LOTE) {
+            hayMas = false;
+          } else {
+            desdeIndice += TAMANO_LOTE;
+          }
+        } else {
+          hayMas = false;
+        }
+      }
+
+      const sedesRes = await supabase
+        .from('sedes')
+        .select('id, nombre')
+        .order('nombre');
+
       if (sedesRes.error) throw sedesRes.error;
 
-      setMinutas((minutasRes.data as any[]) ?? []);
+      setMinutas(todasLasMinutas);
       setTodasLasSedes((sedesRes.data as Sede[]) ?? []);
     } catch (err) {
       console.error('Error cargando datos para métricas:', err);
@@ -213,20 +238,15 @@ export default function Metricas() {
       titulo = 'Último Trimestre (90 días)';
     } else if (rango === 'custom') {
       if (fechaCustom.start) {
-        const [y, m, d] = fechaCustom.start.split('-').map(Number);
-        inicio = new Date(y, m - 1, d, 0, 0, 0, 0);
+        const { desde, hasta } = obtenerRangoUtcParaFiltroColombia(fechaCustom.start, fechaCustom.end);
+        inicio = new Date(desde);
+        fin = new Date(hasta);
       } else {
-        inicio = new Date(yH, mH - 1, dH - 29, 0, 0, 0, 0);
-      }
-
-      if (fechaCustom.end) {
-        const [y, m, d] = fechaCustom.end.split('-').map(Number);
-        fin = new Date(y, m - 1, d, 23, 59, 59, 999);
-      } else if (fechaCustom.start) {
-        const [y, m, d] = fechaCustom.start.split('-').map(Number);
-        fin = new Date(y, m - 1, d, 23, 59, 59, 999);
-      } else {
-        fin = new Date(yH, mH - 1, dH, 23, 59, 59, 999);
+        const { desde, hasta } = obtenerRangoUtcParaFiltroColombia(claveHoy);
+        const inicioTemp = new Date(desde);
+        inicioTemp.setDate(inicioTemp.getDate() - 29);
+        inicio = inicioTemp;
+        fin = new Date(hasta);
       }
 
       dias = Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (24 * 60 * 60 * 1000)));
