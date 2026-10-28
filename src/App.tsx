@@ -51,10 +51,10 @@ function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Inicio />} />
           <Route path="/nueva-minuta" element={<NuevaMinuta />} />
-          <Route path="/activos/registro" element={<RegistroActivo />} />
         </Route>
         
         <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
+          <Route path="/activos/registro" element={<RegistroActivo />} />
           <Route path="/admin/usuarios" element={<GestionUsuarios />} />
           <Route path="/metricas" element={<Metricas />} />
         </Route>

@@ -11,11 +11,12 @@ import {
   ChevronLeft, 
   ChevronRight,
   Users,
-  ClipboardList,
   Home,
   BarChart3,
   Power,
-  ChevronDown
+  ChevronDown,
+  ClipboardList,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -312,14 +313,25 @@ export default function GestionUsuarios() {
       <main className="admin-content animate-fade-in">
         <div className="admin-toolbar">
           <div className="search-box">
-            <Search className="search-icon" size={18} />
+            <Search className="search-icon" size={16} />
             <input 
               type="text" 
               className="search-input"
               placeholder="Buscar por cédula o nombre..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Buscar usuario por cédula o nombre"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                className="btn-limpiar-busqueda"
+                onClick={() => setSearchTerm('')}
+                title="Limpiar búsqueda"
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
           
           <div className="toolbar-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

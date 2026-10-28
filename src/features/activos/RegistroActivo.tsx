@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -8,7 +8,6 @@ import {
   Building2, 
   Hash, 
   CheckCircle, 
-  Trash2, 
   Boxes, 
   UserCheck, 
   MapPin, 
@@ -28,11 +27,19 @@ import {
   ChevronRight,
   Layers,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Save,
+  Home,
+  ClipboardList,
+  Users,
+  BarChart3,
+  ChevronDown,
+  Power
 } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useGeocerca } from '../../hooks/useGeocerca';
+import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import LectorSerialCamara from './LectorSerialCamara';
 import type { Sede } from '../../types/database';
 import { generateUUID } from '../../utils/uuid';
@@ -203,7 +210,28 @@ export function formatearFechaHoraColombia(valor?: string | null): string {
 
 export default function RegistroActivo() {
   const navigate = useNavigate();
-  const { perfil } = useAuth();
+  const { perfil, signOut } = useAuth();
+
+  // Estado del menú desplegable de perfil
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar dropdown al hacer clic afuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    setShowLogoutModal(false);
+    await signOut();
+  }
 
   // Estados de navegación y sede
   const [tipo_movimiento, setTipo_movimiento] = useState<TipoMovimiento>('entrada');
@@ -236,6 +264,12 @@ export default function RegistroActivo() {
     responsable?: string;
     total_visitas: number;
   } | null>(null);
+  const [persona_reconocida, setPersona_reconocida] = useState<{
+    responsable: string;
+    empresa?: string;
+    origen?: string;
+  } | null>(null);
+  const [buscando_cedula, setBuscando_cedula] = useState(false);
   const [motivo_ingreso, setMotivo_ingreso] = useState('');
   const [motivo_salida, setMotivo_salida] = useState('');
 
@@ -491,6 +525,104 @@ export default function RegistroActivo() {
     };
   }, [serial, tipo_movimiento, registros]);
 
+  // 4b. Autocompletado Predictivo Inteligente al Digitar la Cédula
+  const buscar_historial_por_cedula = useCallback(async (cedula_input: string) => {
+    const cedula_limpia = cedula_input.replace(/\D/g, '');
+    if (tipo_movimiento !== 'entrada' || cedula_limpia.length < 5) {
+      setPersona_reconocida(null);
+      return;
+    }
+
+    setBuscando_cedula(true);
+
+    try {
+      // 1. Consultar en movimientos_activos el último registro con esa cédula
+      const { data, error } = await supabase
+        .from('movimientos_activos')
+        .select('responsable, empresa, fecha_hora_ingreso')
+        .eq('cedula', cedula_limpia)
+        .order('fecha_hora_ingreso', { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const mas_reciente = data[0];
+        setPersona_reconocida({
+          responsable: mas_reciente.responsable,
+          empresa: mas_reciente.empresa,
+          origen: 'Historial de Activos'
+        });
+
+        if (mas_reciente.responsable) {
+          setResponsable(mas_reciente.responsable);
+        }
+        if (mas_reciente.empresa) {
+          setEmpresa(mas_reciente.empresa);
+        }
+        setBuscando_cedula(false);
+        return;
+      }
+
+      // 2. Si no está en movimientos_activos, consultar en perfiles (usuarios registrados)
+      const { data: dataPerfil, error: errorPerfil } = await supabase
+        .from('perfiles')
+        .select('nombre, rol')
+        .eq('cedula', cedula_limpia)
+        .limit(1);
+
+      if (!errorPerfil && dataPerfil && dataPerfil.length > 0) {
+        const perfilEncontrado = dataPerfil[0];
+        setPersona_reconocida({
+          responsable: perfilEncontrado.nombre,
+          empresa: 'Claro / Operación',
+          origen: 'Personal Registrado'
+        });
+
+        if (perfilEncontrado.nombre) {
+          setResponsable(perfilEncontrado.nombre);
+        }
+        setEmpresa(prev => prev ? prev : 'Claro');
+        setBuscando_cedula(false);
+        return;
+      }
+
+      // 3. Fallback a registros en memoria local
+      const anterior = registros.find(r => r.cedula === cedula_limpia);
+      if (anterior) {
+        setPersona_reconocida({
+          responsable: anterior.responsable,
+          empresa: anterior.empresa,
+          origen: 'Caché Local'
+        });
+        if (anterior.responsable) setResponsable(anterior.responsable);
+        if (anterior.empresa) setEmpresa(anterior.empresa);
+        setBuscando_cedula(false);
+        return;
+      }
+
+      setPersona_reconocida(null);
+    } catch (err) {
+      console.warn('Error al buscar historial de la persona por cédula:', err);
+      setPersona_reconocida(null);
+    } finally {
+      setBuscando_cedula(false);
+    }
+  }, [tipo_movimiento, registros]);
+
+  // Hook diferido para consultar por cédula mientras el usuario digita
+  useEffect(() => {
+    const cedula_limpia = cedula.replace(/\D/g, '');
+    if (tipo_movimiento !== 'entrada' || cedula_limpia.length < 5) {
+      setPersona_reconocida(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      buscar_historial_por_cedula(cedula);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [cedula, tipo_movimiento, buscar_historial_por_cedula]);
+
   // 5. Búsqueda de activo en SALIDA (en memoria local y consulta directa a Supabase)
   const serial_busqueda = serial.trim().toUpperCase();
   const activo_local_salida = (tipo_movimiento === 'salida' && serial_busqueda && sede_id)
@@ -680,6 +812,8 @@ export default function RegistroActivo() {
       setSerial('');
       setCandidatos_detectados([]);
       setActivo_reconocido(null);
+      setPersona_reconocida(null);
+      setBuscando_cedula(false);
       setMotivo_ingreso('');
       setGuardando(false);
 
@@ -773,24 +907,20 @@ export default function RegistroActivo() {
     }
   };
 
-  // 8. Eliminación de registros (Exclusivo para administradores)
-  const eliminar_registro_prueba = async (id: string) => {
-    if (perfil?.rol !== 'administrador') {
-      alert('Solo los administradores pueden eliminar registros de activos.');
-      return;
-    }
-    if (!confirm('¿Está seguro de eliminar este registro del historial?')) {
-      return;
-    }
-
-    try {
-      await supabase.from('movimientos_activos').delete().eq('id', id);
-    } catch (err) {
-      console.error('Error eliminando en Supabase:', err);
-    }
-    const filtrados = registros.filter(r => r.id !== id);
-    actualizar_registros_locales(filtrados);
-  };
+  // Validación estricta de todos los campos obligatorios para activar el botón Guardar
+  const formularioEntradaValido = Boolean(
+    !guardando &&
+    !geocerca.cargandoUbicacion &&
+    geocerca.estaDentroGeocerca &&
+    geocerca.sedeAutorizada &&
+    sede_id &&
+    serial.trim().length > 0 &&
+    cedula.replace(/\D/g, '').length >= 4 &&
+    responsable.trim().length > 0 &&
+    empresa.trim().length > 0 &&
+    tipologia.trim().length > 0 &&
+    motivo_ingreso.trim().length > 0
+  );
 
   // Métricas calculadas para la sede seleccionada en tiempo real
   const registros_sede = registros.filter(r => r.sede_id === sede_id);
@@ -798,18 +928,132 @@ export default function RegistroActivo() {
   const total_salidos = registros_sede.filter(r => r.estado_ciclo === 'salido').length;
   const total_movimientos = registros_sede.length;
 
+  // Estado y filtro del buscador de historial en la sede (serial, nombre o cédula)
+  const [termino_busqueda_historial, setTermino_busqueda_historial] = useState('');
+  const registros_filtrados = useMemo(() => {
+    const t = termino_busqueda_historial.trim().toLowerCase();
+    const t_numerico = termino_busqueda_historial.replace(/\D/g, '');
+
+    return registros_sede.filter((item) => {
+      if (!t) return true;
+
+      const coincideSerial = item.serial?.toLowerCase().includes(t);
+      const coincideResponsable = item.responsable?.toLowerCase().includes(t);
+      const coincideEmpresa = item.empresa?.toLowerCase().includes(t);
+      const coincideTipologia = item.tipologia?.toLowerCase().includes(t);
+
+      const cedulaLimpiaItem = item.cedula ? item.cedula.replace(/\D/g, '') : '';
+      const coincideCedula = (
+        item.cedula?.toLowerCase().includes(t) ||
+        (Boolean(t_numerico) && cedulaLimpiaItem.includes(t_numerico))
+      );
+
+      return coincideSerial || coincideResponsable || coincideEmpresa || coincideTipologia || coincideCedula;
+    });
+  }, [registros_sede, termino_busqueda_historial]);
+
   return (
     <div className="registro-activos-page">
-      {/* Barra superior de navegación */}
+      {/* ── Header Corporativo Enterprise ─────────────────────────── */}
       <header className="registro-activos-header">
-        <button className="btn-volver" onClick={() => navigate('/')} title="Volver al inicio">
-          <ArrowLeft size={20} />
-        </button>
-        <div className="header-titulos">
-          <h1 className="header-titulo">Control de Entrada y Salida de Activos</h1>
-          <span className="header-subtitulo">Validación satelital y lectura de serial en vivo</span>
+        <div className="activos-header-left">
+          <button 
+            className="activos-back-pill" 
+            onClick={() => navigate('/')} 
+            aria-label="Volver a Inicio"
+            data-tooltip="Volver a Inicio"
+          >
+            <ArrowLeft size={16} />
+            <span className="back-pill-text">Inicio</span>
+          </button>
+
+          <div className="activos-header-divider" />
+
+          <div className="activos-title-badge">
+            <Boxes size={18} color="#da2d34" />
+            <h1>
+              <span className="title-text-full">Control de Entrada y Salida de Activos</span>
+              <span className="title-text-short">Control de Activos</span>
+            </h1>
+          </div>
+        </div>
+
+        <div className="activos-header-right">
+          {/* Profile Dropdown */}
+          <div className="profile-dropdown-wrapper" ref={profileRef}>
+            <button
+              className={`profile-chip-btn ${isProfileOpen ? 'active' : ''}`}
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              aria-label="Menú de usuario"
+              data-tooltip="Mi Cuenta y Opciones"
+            >
+              <div className="avatar-circle">
+                {perfil?.nombre?.charAt(0) || 'S'}
+              </div>
+              <div className="profile-chip-info">
+                <span className="profile-chip-name">{perfil?.nombre?.split(' ')[0] || 'Samir'}</span>
+                <span className="profile-chip-role">{perfil?.rol || 'Administrador'}</span>
+              </div>
+              <ChevronDown size={14} className={`chip-chevron ${isProfileOpen ? 'rotate' : ''}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="profile-menu-dropdown animate-fade-in">
+                <div className="dropdown-user-header">
+                  <p className="dropdown-user-name">{perfil?.nombre || 'Samir Bolívar'}</p>
+                  <p className="dropdown-user-cedula">CC: {perfil?.cedula || '—'}</p>
+                  <span className="dropdown-user-badge">{perfil?.rol || 'Administrador'}</span>
+                </div>
+                
+                <div className="dropdown-divider" />
+                
+                <div className="dropdown-menu-list">
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/'); }}>
+                    <Home size={16} />
+                    <span>Página de Inicio</span>
+                  </button>
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/seguimiento'); }}>
+                    <ClipboardList size={16} />
+                    <span>Seguimiento de Minutas</span>
+                  </button>
+                  {perfil?.rol === 'administrador' && (
+                    <>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/admin/usuarios'); }}>
+                        <Users size={16} />
+                        <span>Gestión de Usuarios</span>
+                      </button>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/metricas'); }}>
+                        <BarChart3 size={16} />
+                        <span>Métricas y Reportes</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="dropdown-divider" />
+
+                <button 
+                  className="dropdown-item item-danger" 
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    setShowLogoutModal(true);
+                  }}
+                >
+                  <Power size={16} />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* Modal de Confirmación de Cierre de Sesión */}
+      <ModalConfirmarSalida 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={handleSignOut} 
+      />
 
       <main className="registro-activos-contenedor">
         {/* Notificación de éxito */}
@@ -837,10 +1081,11 @@ export default function RegistroActivo() {
               setError_formulario('');
               setCandidatos_detectados([]);
               setActivo_reconocido(null);
+              setPersona_reconocida(null);
             }}
           >
             <div className="btn-toggle-icono">
-              <ArrowDownLeft size={18} strokeWidth={2.4} />
+              <ArrowDownLeft size={15} strokeWidth={2.4} />
             </div>
             <span className="btn-toggle-texto">Entrada a Sede</span>
           </button>
@@ -852,10 +1097,11 @@ export default function RegistroActivo() {
               setError_formulario('');
               setCandidatos_detectados([]);
               setActivo_reconocido(null);
+              setPersona_reconocida(null);
             }}
           >
             <div className="btn-toggle-icono">
-              <ArrowUpRight size={18} strokeWidth={2.4} />
+              <ArrowUpRight size={15} strokeWidth={2.4} />
             </div>
             <span className="btn-toggle-texto">Salida de Sede</span>
           </button>
@@ -1072,7 +1318,77 @@ export default function RegistroActivo() {
               )}
             </div>
 
-            {/* 5. Persona Responsable del Ingreso */}
+            {/* 5. Cédula de la Persona (Formato con miles en vivo y Autocompletado Predictivo) */}
+            <div className="form-grupo">
+              <label className="form-label">
+                <CreditCard size={16} color="#da2d34" />
+                <span>Cédula de la Persona <span className="requerido">*</span></span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  placeholder="Ej: 1.045.678.901"
+                  value={cedula}
+                  onChange={manejar_cambio_cedula}
+                  onBlur={() => buscar_historial_por_cedula(cedula)}
+                  required
+                />
+                {buscando_cedula && (
+                  <span style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '11px',
+                    color: '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <RotateCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                    Buscando...
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>
+                Formato automático con puntos de miles. Si la persona ya está registrada, sus datos se completarán abajo.
+              </span>
+
+              {/* Notificación de persona reconocida en historial por Cédula */}
+              {persona_reconocida && (!activo_reconocido || persona_reconocida.responsable !== activo_reconocido.responsable) && (
+                <div className="banner-activo-reconocido">
+                  <div className="banner-reconocido-icono">
+                    <Sparkles size={18} color="#16a34a" />
+                  </div>
+                  <div className="banner-reconocido-cuerpo">
+                    <div className="banner-reconocido-titulo">
+                      <span>¡Persona Registrada Encontrada!</span>
+                      {persona_reconocida.origen && (
+                        <span className="badge-visitas-previas">
+                          {persona_reconocida.origen}
+                        </span>
+                      )}
+                    </div>
+                    <div className="banner-reconocido-detalles">
+                      <span>Responsable: <strong>{persona_reconocida.responsable}</strong></span>
+                      {persona_reconocida.empresa && (
+                        <>
+                          <span>•</span>
+                          <span>Empresa: <strong>{persona_reconocida.empresa}</strong></span>
+                        </>
+                      )}
+                    </div>
+                    <span className="banner-reconocido-nota">
+                      ✓ Responsable y empresa autocompletados. Puede modificarlos si este ingreso corresponde a otra persona o motivo.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 6. Persona Responsable del Ingreso */}
             <div className="form-grupo">
               <label className="form-label">
                 <UserCheck size={16} color="#da2d34" />
@@ -1087,26 +1403,6 @@ export default function RegistroActivo() {
                 onBlur={() => setResponsable(prev => prev.trim())}
                 required
               />
-            </div>
-
-            {/* 6. Cédula de la Persona (Formato con miles en vivo) */}
-            <div className="form-grupo">
-              <label className="form-label">
-                <CreditCard size={16} color="#da2d34" />
-                <span>Cédula de la Persona <span className="requerido">*</span></span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="form-input"
-                placeholder="Ej: 1.045.678.901"
-                value={cedula}
-                onChange={manejar_cambio_cedula}
-                required
-              />
-              <span style={{ fontSize: '11px', color: '#64748b' }}>
-                Formato automático con puntos de miles. Se almacena solo dígitos numéricos en base de datos.
-              </span>
             </div>
 
             {/* 7. Empresa a la que pertenece */}
@@ -1209,7 +1505,7 @@ export default function RegistroActivo() {
             <button
               type="submit"
               className="btn-guardar-registro"
-              disabled={guardando || !serial.trim() || geocerca.cargandoUbicacion || !geocerca.estaDentroGeocerca || !geocerca.sedeAutorizada || !sede_id}
+              disabled={!formularioEntradaValido}
             >
               {geocerca.cargandoUbicacion ? (
                 <span>Detectando señal GPS del puesto...</span>
@@ -1220,8 +1516,8 @@ export default function RegistroActivo() {
                 </>
               ) : (
                 <>
-                  <CheckCircle size={20} />
-                  <span>Guardar Entrada de Activo</span>
+                  <Save size={20} />
+                  <span>Guardar</span>
                 </>
               )}
             </button>
@@ -1449,7 +1745,7 @@ export default function RegistroActivo() {
           <div className="inventario-header">
             <h2 className="inventario-titulo">
               <Boxes size={20} color="#da2d34" />
-              <span>Inventario y Movimientos en Sede</span>
+              <span>Movimientos de la Sede</span>
             </h2>
             <span style={{ fontSize: '12px', color: '#5c403e', fontWeight: 600 }}>
               {sedes.find(s => s.id === sede_id)?.nombre || 'Sede actual'}
@@ -1473,17 +1769,51 @@ export default function RegistroActivo() {
 
           {/* Listado de Activos Registrados en la Sede */}
           <div className="inventario-lista-contenedor">
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#281716', margin: '8px 0' }}>
-              Historial de Activos en la Sede
-            </h3>
+            <div className="historial-activos-cabecera">
+              <h3 className="historial-activos-titulo">
+                Historial de Activos
+              </h3>
+              <div className="historial-search-box">
+                <Search size={15} className="historial-search-icon" />
+                <input
+                  type="text"
+                  placeholder="Buscar serial, nombre o CC..."
+                  value={termino_busqueda_historial}
+                  onChange={(e) => setTermino_busqueda_historial(e.target.value)}
+                  className="historial-search-input"
+                  aria-label="Buscar por serial, nombre o cédula"
+                />
+                {termino_busqueda_historial && (
+                  <button
+                    type="button"
+                    className="btn-limpiar-busqueda-activos"
+                    onClick={() => setTermino_busqueda_historial('')}
+                    title="Limpiar búsqueda"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
 
             {registros_sede.length === 0 ? (
               <div className="inventario-vacio">
                 <span>No hay activos registrados en esta sede todavía.</span>
               </div>
+            ) : registros_filtrados.length === 0 ? (
+              <div className="inventario-vacio">
+                <span>No se encontraron activos para "<strong>{termino_busqueda_historial}</strong>".</span>
+                <button
+                  type="button"
+                  onClick={() => setTermino_busqueda_historial('')}
+                  className="btn-restablecer-filtro-activos"
+                >
+                  Restablecer búsqueda
+                </button>
+              </div>
             ) : (
               <div className="activos-items-lista">
-                {registros_sede.map((item) => (
+                {registros_filtrados.map((item) => (
                   <div key={item.id} className="activo-item-tarjeta">
                     <div className="activo-item-header">
                       <div className="activo-item-info-principal">
@@ -1492,13 +1822,6 @@ export default function RegistroActivo() {
                         </span>
                         <span className="activo-serial-texto">{item.serial}</span>
                       </div>
-                      <button
-                        className="btn-eliminar-activo"
-                        onClick={() => eliminar_registro_prueba(item.id)}
-                        title="Eliminar de historial"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
 
                     <div className="activo-item-detalles">

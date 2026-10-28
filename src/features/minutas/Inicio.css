@@ -1,5 +1,5 @@
 /* ============================================================
-   Inicio – Diseño fiel a Stitch "Inicio - Claro (Corregido)"
+   Inicio – Diseño Minimalista Móvil Claro
    ============================================================ */
 
 .inicio-page {
@@ -53,167 +53,105 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 16px 48px;
+  padding: 0 16px 40px;
 }
 
 /* ─── Welcome Section (Centered) ───────────────────────────── */
 .welcome-section {
   text-align: center;
-  margin-bottom: 64px;
+  margin-bottom: 28px;
 }
 
 .welcome-icon-wrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
+  width: 68px;
+  height: 68px;
   border-radius: 9999px;
-  background: rgba(218, 45, 52, 0.05);
+  background: rgba(218, 45, 52, 0.06);
   color: #da2d34;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .welcome-icon-wrapper svg {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
 }
 
 .welcome-title {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
-  line-height: 38px;
+  line-height: 32px;
   letter-spacing: -0.02em;
   color: #281716;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .welcome-subtitle {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 400;
-  line-height: 28px;
+  line-height: 22px;
   color: #5c403e;
-  max-width: 300px;
+  max-width: 280px;
   margin: 0 auto;
 }
 
-/* ─── Primary Action Buttons ────────────────────────────────── */
+/* ─── Primary Action Buttons (Ancho compacto y adaptado a móvil) ── */
 .primary-action-area {
   width: 100%;
-  max-width: 440px;
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.agregar-minuta-btn {
-  width: 100%;
-  height: 76px;
-  background: #da2d34;
-  color: #fff8f7;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 8px 24px -4px rgba(218, 45, 52, 0.25);
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
-}
-
-.agregar-minuta-btn:active {
-  transform: scale(0.97);
-}
-
-.agregar-minuta-btn:hover {
-  box-shadow: 0 12px 28px -4px rgba(218, 45, 52, 0.35);
-  background: #c7242a;
-}
-
-.btn-add-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 10px;
-  border-radius: 12px;
-}
-
-.agregar-minuta-btn span.btn-label {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 28px;
-  letter-spacing: -0.01em;
-}
-
-/* Botón secundario premium: Control de Activos */
-.agregar-activos-btn {
-  width: 100%;
-  height: 76px;
-  background: #ffffff;
-  color: #281716;
-  border: 1.5px solid #e4bdba;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0 20px;
-  gap: 16px;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.agregar-activos-btn:active {
-  transform: scale(0.97);
-}
-
-.agregar-activos-btn:hover {
-  border-color: #da2d34;
-  background: #fff8f7;
-  box-shadow: 0 8px 20px rgba(218, 45, 52, 0.12);
-}
-
-.btn-activos-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffe1df;
-  color: #da2d34;
-  padding: 10px;
-  border-radius: 12px;
-}
-
-.btn-activos-textos {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.agregar-activos-btn span.btn-label {
-  font-size: 18px;
-  font-weight: 700;
-  color: #281716;
-  line-height: 1.2;
-}
-
-.agregar-activos-btn span.btn-sublabel {
-  font-size: 12px;
-  font-weight: 500;
-  color: #5c403e;
-  margin-top: 2px;
-}
-
-/* ─── Status Info ──────────────────────────────────────────── */
-.status-info {
-  margin-top: 48px;
+  max-width: 280px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+}
+
+/* Botón Minimalista Móvil Claro (52px compacto) */
+.btn-minimal-rojo {
+  width: 100%;
+  height: 52px;
+  background: #da291c;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(218, 41, 28, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  font-family: inherit;
+  padding: 0 18px;
+}
+
+.btn-minimal-rojo:hover {
+  background: #c92217;
+  box-shadow: 0 6px 18px rgba(218, 41, 28, 0.26);
+}
+
+.btn-minimal-rojo:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(218, 41, 28, 0.15);
+}
+
+.btn-minimal-texto {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ─── Status Info ──────────────────────────────────────────── */
+.status-info {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .status-pill {
@@ -222,19 +160,19 @@
   gap: 8px;
   background: #ffe1df;
   color: #5c403e;
-  padding: 10px 20px;
+  padding: 8px 18px;
   border-radius: 9999px;
   border: 1px solid #e4bdba;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
-  line-height: 20px;
+  line-height: 18px;
   letter-spacing: 0.01em;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 9999px;
   background: #22c55e;
   animation: pulse-dot 2s infinite;
@@ -244,4 +182,3 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-

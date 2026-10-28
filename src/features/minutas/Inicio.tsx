@@ -2,13 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  Plus,
   Power,
   Users,
   ClipboardList,
   ChevronDown,
   BarChart3,
-  Boxes
+  Boxes,
+  BookOpen
 } from 'lucide-react';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './Inicio.css';
@@ -16,7 +16,7 @@ import './Inicio.css';
 export default function Inicio() {
   const { perfil, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estado del menú desplegable de perfil
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -94,10 +94,6 @@ export default function Inicio() {
                       <ClipboardList size={16} />
                       <span>Seguimiento de Minutas</span>
                     </button>
-                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/activos/registro'); }}>
-                      <Boxes size={16} />
-                      <span>Control de Activos</span>
-                    </button>
                     <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/admin/usuarios'); }}>
                       <Users size={16} />
                       <span>Gestión de Usuarios</span>
@@ -109,16 +105,10 @@ export default function Inicio() {
                   </>
                 )}
                 {perfil?.rol === 'supervisor' && (
-                  <>
-                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/seguimiento'); }}>
-                      <ClipboardList size={16} />
-                      <span>Seguimiento de Minutas</span>
-                    </button>
-                    <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/activos/registro'); }}>
-                      <Boxes size={16} />
-                      <span>Control de Activos</span>
-                    </button>
-                  </>
+                  <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); navigate('/seguimiento'); }}>
+                    <ClipboardList size={16} />
+                    <span>Seguimiento de Minutas</span>
+                  </button>
                 )}
               </div>
 
@@ -164,30 +154,25 @@ export default function Inicio() {
           </p>
         </section>
 
-        {/* Primary Actions — Botones principales de acceso */}
+        {/* Primary Actions — Botones Minimalistas Móviles (Ancho Compacto) */}
         <div className="primary-action-area">
           <button
-            className="agregar-minuta-btn"
+            className="btn-minimal-rojo"
             onClick={() => navigate('/nueva-minuta')}
           >
-            <div className="btn-add-icon">
-              <Plus size={28} strokeWidth={2.5} />
-            </div>
-            <span className="btn-label">Libro de Minutas</span>
+            <BookOpen size={20} strokeWidth={2.2} />
+            <span className="btn-minimal-texto">Libro de Minutas</span>
           </button>
 
-          <button
-            className="agregar-activos-btn"
-            onClick={() => navigate('/activos/registro')}
-          >
-            <div className="btn-activos-icon">
-              <Boxes size={28} strokeWidth={2.2} />
-            </div>
-            <div className="btn-activos-textos">
-              <span className="btn-label">Control de Activos</span>
-              <span className="btn-sublabel">Entrada, salida y escáner de serial</span>
-            </div>
-          </button>
+          {perfil?.rol === 'administrador' && (
+            <button
+              className="btn-minimal-rojo"
+              onClick={() => navigate('/activos/registro')}
+            >
+              <Boxes size={20} strokeWidth={2.2} />
+              <span className="btn-minimal-texto">Control de Activos</span>
+            </button>
+          )}
         </div>
 
         {/* Status Info */}
@@ -207,5 +192,3 @@ export default function Inicio() {
     </div>
   );
 }
-
-
