@@ -14,13 +14,21 @@ import {
   Navigation,
   Lock,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  ChevronDown,
+  Home,
+  ClipboardList,
+  Users,
+  BarChart3,
+  Power
 } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useGeocerca } from '../../hooks/useGeocerca';
 import PremiumSelect from '../../components/PremiumSelect';
 import { ConfirmacionModal } from './ConfirmacionModal';
+import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './NuevaMinuta.css';
 import type { Sede, TipoNovedad } from '../../types/database';
 
@@ -31,7 +39,28 @@ import { ZONA_HORARIA_COLOMBIA } from '../../utils/fechasColombia';
 
 export default function NuevaMinuta() {
   const navigate = useNavigate();
-  const { perfil } = useAuth();
+  const { perfil, signOut } = useAuth();
+
+  // Estado del menú desplegable de perfil
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar dropdown al hacer clic afuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    setShowLogoutModal(false);
+    await signOut();
+  }
 
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [tiposNovedad, setTiposNovedad] = useState<TipoNovedad[]>([]);
@@ -237,17 +266,108 @@ export default function NuevaMinuta() {
 
   return (
     <div className="nueva-minuta-page">
+      {/* ── Header Corporativo Enterprise ─────────────────────────── */}
       <header className="minuta-header">
-        <button 
-          className="back-btn" 
-          onClick={() => navigate(-1)} 
-          aria-label="Volver"
-          data-tooltip="Volver"
-        >
-          <ArrowLeft size={24} />
-        </button>
-        <h1>Registrar Anotación</h1>
+        <div className="minuta-header-left">
+          <button 
+            className="minuta-back-pill" 
+            onClick={() => navigate('/')} 
+            aria-label="Volver a Inicio"
+            data-tooltip="Volver a Inicio"
+          >
+            <ArrowLeft size={16} />
+            <span className="back-pill-text">Inicio</span>
+          </button>
+
+          <div className="minuta-header-divider" />
+
+          <div className="minuta-title-badge">
+            <BookOpen size={18} color="#da2d34" />
+            <h1>
+              <span className="title-text-full">Registrar Anotación</span>
+              <span className="title-text-short">Nueva Minuta</span>
+            </h1>
+          </div>
+        </div>
+
+        <div className="minuta-header-right">
+          {/* Profile Dropdown */}
+          <div className="profile-dropdown-wrapper" ref={profileRef}>
+            <button
+              className={`profile-chip-btn ${isProfileOpen ? 'active' : ''}`}
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              aria-label="Menú de usuario"
+              data-tooltip="Mi Cuenta y Opciones"
+            >
+              <div className="avatar-circle">
+                {perfil?.nombre?.charAt(0) || 'S'}
+              </div>
+              <div className="profile-chip-info">
+                <span className="profile-chip-name">{perfil?.nombre?.split(' ')[0] || 'Samir'}</span>
+                <span className="profile-chip-role">{perfil?.rol || 'Administrador'}</span>
+              </div>
+              <ChevronDown size={14} className={`chip-chevron ${isProfileOpen ? 'rotate' : ''}`} />
+            </button>
+
+            {isProfileOpen && (
+              <div className="profile-menu-dropdown animate-fade-in">
+                <div className="dropdown-user-header">
+                  <p className="dropdown-user-name">{perfil?.nombre || 'Samir Bolívar'}</p>
+                  <p className="dropdown-user-cedula">CC: {perfil?.cedula || '—'}</p>
+                  <span className="dropdown-user-badge">{perfil?.rol || 'Administrador'}</span>
+                </div>
+                
+                <div className="dropdown-divider" />
+                
+                <div className="dropdown-menu-list">
+                  <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/'); }}>
+                    <Home size={16} />
+                    <span>Página de Inicio</span>
+                  </button>
+                  {(perfil?.rol === 'administrador' || perfil?.rol === 'supervisor') && (
+                    <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/seguimiento'); }}>
+                      <ClipboardList size={16} />
+                      <span>Seguimiento de Minutas</span>
+                    </button>
+                  )}
+                  {perfil?.rol === 'administrador' && (
+                    <>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/admin/usuarios'); }}>
+                        <Users size={16} />
+                        <span>Gestión de Usuarios</span>
+                      </button>
+                      <button className="dropdown-item" onClick={() => { setIsProfileOpen(false); navigate('/metricas'); }}>
+                        <BarChart3 size={16} />
+                        <span>Métricas y Reportes</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="dropdown-divider" />
+
+                <button 
+                  className="dropdown-item item-danger" 
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    setShowLogoutModal(true);
+                  }}
+                >
+                  <Power size={16} />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
+
+      {/* Modal de Confirmación de Cierre de Sesión */}
+      <ModalConfirmarSalida 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        onConfirm={handleSignOut} 
+      />
 
       <main className="minuta-content animate-fade-in">
         <form className="minuta-form" onSubmit={handleSubmit}>

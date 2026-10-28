@@ -2,12 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  Plus,
   Power,
   Users,
   ClipboardList,
   ChevronDown,
-  BarChart3
+  BarChart3,
+  Boxes,
+  BookOpen
 } from 'lucide-react';
 import ModalConfirmarSalida from '../../components/ModalConfirmarSalida';
 import './Inicio.css';
@@ -15,7 +16,7 @@ import './Inicio.css';
 export default function Inicio() {
   const { perfil, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estado del menú desplegable de perfil
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -153,17 +154,25 @@ export default function Inicio() {
           </p>
         </section>
 
-        {/* Primary Action — Botón grande rojo */}
+        {/* Primary Actions — Botones Minimalistas Móviles (Ancho Compacto) */}
         <div className="primary-action-area">
           <button
-            className="agregar-minuta-btn"
+            className="btn-minimal-rojo"
             onClick={() => navigate('/nueva-minuta')}
           >
-            <div className="btn-add-icon">
-              <Plus size={32} strokeWidth={2} />
-            </div>
-            <span className="btn-label">Libro de Minutas</span>
+            <BookOpen size={20} strokeWidth={2.2} />
+            <span className="btn-minimal-texto">Libro de Minutas</span>
           </button>
+
+          {perfil?.rol === 'administrador' && (
+            <button
+              className="btn-minimal-rojo"
+              onClick={() => navigate('/activos/registro')}
+            >
+              <Boxes size={20} strokeWidth={2.2} />
+              <span className="btn-minimal-texto">Control de Activos</span>
+            </button>
+          )}
         </div>
 
         {/* Status Info */}
@@ -183,5 +192,3 @@ export default function Inicio() {
     </div>
   );
 }
-
-

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import Login from './features/auth/Login';
 import Inicio from './features/minutas/Inicio';
 import NuevaMinuta from './features/minutas/NuevaMinuta';
+import RegistroActivo from './features/activos/RegistroActivo';
 import SeguimientoMinutas from './features/minutas/SeguimientoMinutas';
 import GestionUsuarios from './features/admin/GestionUsuarios';
 import Metricas from './features/metricas/Metricas';
@@ -53,6 +54,7 @@ function AppRoutes() {
         </Route>
         
         <Route element={<ProtectedRoute allowedRoles={['administrador']} />}>
+          <Route path="/activos/registro" element={<RegistroActivo />} />
           <Route path="/admin/usuarios" element={<GestionUsuarios />} />
           <Route path="/metricas" element={<Metricas />} />
         </Route>

@@ -1,50 +1,95 @@
 .nueva-minuta-page {
   min-height: 100dvh;
-  background-color: #f4f4f5;
+  background-color: #fff8f7;
+  color: #281716;
   display: flex;
   flex-direction: column;
 }
 
+/* --- Header Corporativo Enterprise --- */
 .minuta-header {
-  background-color: #da2d34;
-  color: white;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
   position: sticky;
   top: 0;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.back-btn {
-  background: white !important;
-  border: none;
-  color: #da2d34 !important;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  padding: 0;
-  cursor: pointer;
+  z-index: 40;
+  background-color: #fff8f7;
+  border-bottom: 1px solid #e4bdba;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-  transition: background-color 0.2s, transform 0.15s;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 56px;
+  gap: 12px;
+}
+
+.minuta-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.minuta-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
 }
 
-.back-btn:hover {
-  background-color: #ffe1df !important;
-  transform: scale(1.08);
+.minuta-header-divider {
+  width: 1px;
+  height: 22px;
+  background: #e4bdba;
 }
 
-.minuta-header h1 {
-  font-size: 1.25rem;
+.minuta-back-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #e4bdba;
+  color: #da2d34;
+  font-size: 13px;
   font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(218, 45, 52, 0.04);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.minuta-back-pill:hover {
+  background: #fff0ef;
+  border-color: #da2d34;
+  transform: translateY(-1px);
+}
+
+.minuta-title-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.minuta-title-badge h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #281716;
   margin: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .minuta-header {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .minuta-header-left {
+    gap: 8px;
+  }
+  .minuta-title-badge h1 {
+    font-size: 16px;
+  }
 }
 
 .minuta-content {
