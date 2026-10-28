@@ -12,13 +12,14 @@ import {
 } from 'lucide-react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
-import { procesar_imagen_serial, type ResultadoExtraccionSerial } from '../../utils/extractor_serial';
+import { procesar_imagen_serial, extraer_candidatos_serial, type ResultadoExtraccionSerial } from '../../utils/extractor_serial';
 import './LectorSerialCamara.css';
 
 interface PropiedadesLectorSerial {
   serial_actual: string;
-  al_detectar_serial: (serial: string, archivo_foto?: File, url_foto?: string) => void;
+  al_detectar_serial: (serial: string, archivo_foto?: File, url_foto?: string, candidatos?: string[]) => void;
   al_cambiar_foto?: (archivo_foto: File | null) => void;
+  texto_boton?: string;
 }
 
 // Configuración de lector ZXing en vivo
@@ -72,7 +73,8 @@ function emitir_sonido_escaneo() {
 export default function LectorSerialCamara({
   serial_actual,
   al_detectar_serial,
-  al_cambiar_foto
+  al_cambiar_foto,
+  texto_boton = 'Escanear'
 }: PropiedadesLectorSerial) {
   const [procesando, setProcesando] = useState(false);
   const [mensaje_estado, setMensaje_estado] = useState('');
@@ -92,8 +94,23 @@ export default function LectorSerialCamara({
   const stream_ref = useRef<MediaStream | null>(null);
   const escaneo_activo_ref = useRef<boolean>(false);
   const canvas_oculto_ref = useRef<HTMLCanvasElement | null>(null);
+  const detector_nativo_ref = useRef<{ detect: (imagen: CanvasImageSource) => Promise<Array<{ rawValue: string }>> } | null>(null);
 
   const input_camara_nativa_ref = useRef<HTMLInputElement>(null);
+
+  // Inicializar BarcodeDetector si está disponible en el navegador
+  useEffect(() => {
+    try {
+      const ventana = window as unknown as { BarcodeDetector?: new (opciones?: { formats: string[] }) => { detect: (imagen: CanvasImageSource) => Promise<Array<{ rawValue: string }>> } };
+      if (ventana.BarcodeDetector) {
+        detector_nativo_ref.current = new ventana.BarcodeDetector({
+          formats: ['code_128', 'code_39', 'code_93', 'qr_code', 'data_matrix', 'itf', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'codabar']
+        });
+      }
+    } catch {
+      // No soportado nativamente
+    }
+  }, []);
 
   // Detener la cámara
   const detener_camara = useCallback(() => {
@@ -124,15 +141,16 @@ export default function LectorSerialCamara({
         }
       );
 
-      setCandidatos(resultado.candidatos_alternativos || []);
+      const lista_candidatos = resultado.candidatos_alternativos || [];
+      setCandidatos(lista_candidatos);
       setMetodo_extraccion(resultado.metodo);
 
       if (resultado.serial_detectado) {
         emitir_sonido_escaneo();
         if (navigator.vibrate) navigator.vibrate(120);
-        al_detectar_serial(resultado.serial_detectado, archivo, resultado.imagen_procesada_url || url_objeto);
+        al_detectar_serial(resultado.serial_detectado, archivo, resultado.imagen_procesada_url || url_objeto, lista_candidatos);
       } else {
-        al_detectar_serial('', archivo, url_objeto);
+        al_detectar_serial('', archivo, url_objeto, []);
       }
 
       al_cambiar_foto?.(archivo);
@@ -163,34 +181,61 @@ export default function LectorSerialCamara({
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-          // 1. Intentar decodificación con ZXing en el frame actual
-          try {
-            const resultado = await lector_zxing_vivo.decodeFromCanvas(canvas);
-            if (resultado && resultado.getText()) {
-              const codigo_detectado = resultado.getText().trim();
-              if (codigo_detectado.length >= 4) {
-                // ¡Código de barras detectado en tiempo real!
-                escaneo_activo_ref.current = false;
-                emitir_sonido_escaneo();
-                if (navigator.vibrate) navigator.vibrate(150);
+          let codigos_detectados: string[] = [];
 
-                // Capturar snapshot actual para vista previa
-                canvas.toBlob((blob) => {
-                  const archivo = blob 
-                    ? new File([blob], `serial_${Date.now()}.jpg`, { type: 'image/jpeg' })
-                    : undefined;
-                  const url_img = canvas.toDataURL('image/jpeg', 0.9);
-                  setFoto_url_previa(url_img);
-                  setMetodo_extraccion('codigo_barras');
-                  detener_camara();
-                  al_detectar_serial(codigo_detectado, archivo, url_img);
-                  if (archivo) al_cambiar_foto?.(archivo);
-                }, 'image/jpeg', 0.9);
-                return;
+          // 1. Detección nativa con BarcodeDetector si está disponible (detecta múltiples códigos en paralelo)
+          if (detector_nativo_ref.current) {
+            try {
+              const resultados = await detector_nativo_ref.current.detect(canvas);
+              if (resultados && resultados.length > 0) {
+                codigos_detectados = resultados
+                  .map(r => r.rawValue ? r.rawValue.trim() : '')
+                  .filter(c => c.length >= 4);
               }
+            } catch {
+              // Fallback
             }
-          } catch {
-            // No se detectó código en este frame, continuar al siguiente
+          }
+
+          // 2. Intentar decodificación con ZXing si no se detectó con el detector nativo
+          if (codigos_detectados.length === 0) {
+            try {
+              const resultado = await lector_zxing_vivo.decodeFromCanvas(canvas);
+              if (resultado && resultado.getText()) {
+                const codigo = resultado.getText().trim();
+                if (codigo.length >= 4) {
+                  codigos_detectados = [codigo];
+                }
+              }
+            } catch {
+              // Continuar
+            }
+          }
+
+          if (codigos_detectados.length > 0) {
+            // ¡Código(s) detectado(s) en tiempo real!
+            escaneo_activo_ref.current = false;
+            emitir_sonido_escaneo();
+            if (navigator.vibrate) navigator.vibrate(150);
+
+            // Analizar si alguno tiene S/N o extraer candidatos
+            const { principal, candidatos: lista_candidatos } = extraer_candidatos_serial('', codigos_detectados);
+            const serial_a_usar = principal || codigos_detectados[0];
+
+            // Capturar snapshot actual para vista previa
+            canvas.toBlob((blob) => {
+              const archivo = blob 
+                ? new File([blob], `serial_${Date.now()}.jpg`, { type: 'image/jpeg' })
+                : undefined;
+              const url_img = canvas.toDataURL('image/jpeg', 0.9);
+              setFoto_url_previa(url_img);
+              setMetodo_extraccion('codigo_barras');
+              detener_camara();
+              setCandidatos(lista_candidatos);
+              al_detectar_serial(serial_a_usar, archivo, url_img, lista_candidatos);
+              if (archivo) al_cambiar_foto?.(archivo);
+            }, 'image/jpeg', 0.9);
+            return;
           }
         }
       }
@@ -301,7 +346,7 @@ export default function LectorSerialCamara({
     setFoto_url_previa(null);
     setCandidatos([]);
     setMetodo_extraccion(null);
-    al_detectar_serial('');
+    al_detectar_serial('', undefined, undefined, []);
     al_cambiar_foto?.(null);
   };
 
@@ -336,7 +381,7 @@ export default function LectorSerialCamara({
             onClick={() => iniciar_camara_trasera('environment')}
           >
             <Camera size={22} />
-            <span>Escanear con Cámara en Vivo</span>
+            <span>{texto_boton}</span>
           </button>
         </div>
       )}
@@ -393,19 +438,25 @@ export default function LectorSerialCamara({
             <div className="candidatos-seccion">
               <span className="candidatos-titulo">
                 <Sparkles size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                Otros números detectados en la etiqueta (Toca para seleccionar):
+                Opciones detectadas al escanear (Toca para seleccionar):
               </span>
               <div className="candidatos-chips-lista">
-                {candidatos.map((candidato, index) => (
-                  <button
-                    key={`${candidato}-${index}`}
-                    type="button"
-                    className={`chip-candidato ${serial_actual === candidato ? 'activo' : ''}`}
-                    onClick={() => al_detectar_serial(candidato)}
-                  >
-                    {candidato}
-                  </button>
-                ))}
+                {candidatos.map((candidato, index) => {
+                  const es_activo = serial_actual.trim().toUpperCase() === candidato.trim().toUpperCase();
+                  return (
+                    <button
+                      key={`${candidato}-${index}`}
+                      type="button"
+                      className={`chip-candidato ${es_activo ? 'activo' : ''}`}
+                      onClick={() => al_detectar_serial(candidato, undefined, undefined, candidatos)}
+                    >
+                      {es_activo && (
+                        <CheckCircle2 size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                      )}
+                      {candidato}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

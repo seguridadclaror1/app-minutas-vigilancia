@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -27,9 +27,11 @@ import {
   X,
   ChevronRight,
   Layers,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '../../config/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { useGeocerca } from '../../hooks/useGeocerca';
 import LectorSerialCamara from './LectorSerialCamara';
 import type { Sede } from '../../types/database';
@@ -43,11 +45,11 @@ export type TipologiaActivo = string;
 
 export interface CatalogoTipologia {
   id: string;
-  numero: number;
+  numero: string;
   nombre: string;
   subtitulo: string;
   ejemplos: string;
-  iconoClave: 'computo' | 'telecom' | 'mobiliario' | 'herramientas' | 'otro';
+  iconoClave: string;
   colorIcono: string;
   fondoIcono: string;
   bordeIcono: string;
@@ -57,95 +59,78 @@ export interface CatalogoTipologia {
 export const CATALOGO_TIPOLOGIAS: CatalogoTipologia[] = [
   {
     id: 'computo',
-    numero: 1,
-    nombre: 'Equipos de cómputo y tecnología',
-    subtitulo: 'Computadores, periféricos y equipos de oficina tecnológica.',
-    ejemplos: 'Portátiles, computadores de escritorio, monitores, impresoras, escáneres, teclados, mouse, UPS, servidores, discos externos y otros periféricos.',
+    numero: '1',
+    nombre: 'Equipos de Cómputo y Portátiles',
+    subtitulo: 'Laptops, computadores, tablets y estaciones móviles',
+    ejemplos: 'Portátil corporativo, MacBook, laptop personal de trabajo, cargador o docking station.',
     iconoClave: 'computo',
     colorIcono: '#2563eb',
     fondoIcono: '#eff6ff',
     bordeIcono: '#bfdbfe',
     subelementos: [
-      'Portátil / Laptop',
-      'Computador de Escritorio (PC)',
-      'Monitor / Pantalla',
-      'Impresora / Escáner',
-      'Servidor / Equipo de Rack',
-      'UPS / Regulador de Voltaje',
-      'Disco Externo / Almacenamiento',
-      'Teclado / Mouse / Accesorios',
-      'Otro de Cómputo'
+      'Portátil Corporativo / Laboral',
+      'Portátil Personal de Trabajo',
+      'Tablet / iPad de Operación',
+      'Docking Station / Cargador / Monitor Portátil'
     ]
   },
   {
     id: 'telecom',
-    numero: 2,
-    nombre: 'Equipos de telecomunicaciones',
-    subtitulo: 'Infraestructura activa y pasiva utilizada en la operación.',
-    ejemplos: 'Routers, switches, OLT, ONT, radios de microondas, equipos de transmisión, tarjetas, módulos, fuentes, rectificadores, equipos de acceso y otros equipos de red.',
+    numero: '2',
+    nombre: 'Equipos de Red y Telecomunicaciones',
+    subtitulo: 'Routers, switches, antenas y módems de enlace',
+    ejemplos: 'Router empresarial, switch de red, módem de prueba, antena de radioenlace, transceptor.',
     iconoClave: 'telecom',
     colorIcono: '#0d9488',
     fondoIcono: '#f0fdfa',
     bordeIcono: '#99f6e4',
     subelementos: [
-      'Router / Enrutador',
-      'Switch / Conmutador',
-      'OLT / ONT (Fibra Óptica)',
-      'Radio de Microondas',
-      'Equipo de Transmisión',
-      'Tarjeta / Módulo de Red',
-      'Fuente / Rectificador de Poder',
-      'Antena / Equipo de Acceso',
-      'Otro de Telecomunicaciones'
-    ]
-  },
-  {
-    id: 'mobiliario',
-    numero: 3,
-    nombre: 'Mobiliario y elementos de oficina',
-    subtitulo: 'Bienes físicos utilizados en oficinas, salas técnicas y sedes.',
-    ejemplos: 'Escritorios, sillas, archivadores, mesas, estanterías, gabinetes, aires acondicionados, televisores, neveras y demás mobiliario o electrodomésticos.',
-    iconoClave: 'mobiliario',
-    colorIcono: '#9333ea',
-    fondoIcono: '#faf5ff',
-    bordeIcono: '#e9d5ff',
-    subelementos: [
-      'Escritorio / Puesto de Trabajo',
-      'Silla Ergonómica / Operativa',
-      'Archivador / Gabinete Metálico',
-      'Mesa de Reuniones / Estantería',
-      'Aire Acondicionado',
-      'Televisor / Monitor de Sala',
-      'Nevera / Dispensador / Electrodoméstico',
-      'Otro Mobiliario'
+      'Router / Módem Empresarial',
+      'Switch / Patch Panel / Conmutador',
+      'Antena / Radioenlace / Transceptor',
+      'Access Point / Repetidor de Red'
     ]
   },
   {
     id: 'herramientas',
-    numero: 4,
-    nombre: 'Herramientas y equipos técnicos / de planta',
-    subtitulo: 'Equipos de trabajo en campo y mantenimiento de infraestructura.',
-    ejemplos: 'Fusionadoras de fibra, reflectómetros OTDR, medidores ópticos, taladros, escaleras dieléctricas, plantas eléctricas y herramientas manuales.',
+    numero: '3',
+    nombre: 'Herramientas Técnicas y de Medición',
+    subtitulo: 'OTDR, fusionadoras, multímetros y analizadores',
+    ejemplos: 'Fusionadora de fibra óptica, reflectómetro OTDR, medidor de potencia, multímetro digital, pinza voltiamperimétrica.',
     iconoClave: 'herramientas',
     colorIcono: '#ea580c',
     fondoIcono: '#fff7ed',
     bordeIcono: '#fed7aa',
     subelementos: [
       'Fusionadora de Fibra Óptica',
-      'OTDR / Medidor Óptico / Power Meter',
-      'Escalera Dieléctrica',
-      'Taladro / Herramienta Eléctrica',
-      'Planta Eléctrica / Generador',
-      'Caja de Herramientas Manuales',
-      'Otro Equipo Técnico'
+      'Reflectómetro OTDR / Medidor Óptico',
+      'Multímetro Digital / Pinza Voltiamperimétrica',
+      'Generador de Tonos / Probador de Cableado'
+    ]
+  },
+  {
+    id: 'mobiliario',
+    numero: '4',
+    nombre: 'Mobiliario y Enseres de Oficina',
+    subtitulo: 'Sillas, escritorios, archivadores y cajoneras',
+    ejemplos: 'Silla ergonómica, archivador metálico, mesa auxiliar, lockers, tablero acrílico.',
+    iconoClave: 'mobiliario',
+    colorIcono: '#9333ea',
+    fondoIcono: '#faf5ff',
+    bordeIcono: '#e9d5ff',
+    subelementos: [
+      'Silla Ergonómica / Operativa',
+      'Archivador Metálico / Cajonera',
+      'Mesa de Trabajo / Escritorio Auxiliar',
+      'Locker / Casillero / Estantería'
     ]
   },
   {
     id: 'otro',
-    numero: 5,
-    nombre: 'Otro Activo / Elemento Particular',
-    subtitulo: 'Bienes o elementos especiales no clasificados previamente.',
-    ejemplos: 'Equipos de seguridad física, dotación, elementos de protección personal, repuestos o activos varios.',
+    numero: '5',
+    nombre: 'Otros Equipos y Elementos',
+    subtitulo: 'CCTV, periféricos, equipos de seguridad o varios',
+    ejemplos: 'Cámara de seguridad, biométrico de acceso, radio de comunicación, proyector, EPP especial.',
     iconoClave: 'otro',
     colorIcono: '#64748b',
     fondoIcono: '#f8fafc',
@@ -161,18 +146,23 @@ export const CATALOGO_TIPOLOGIAS: CatalogoTipologia[] = [
 
 export interface RegistroActivoItem {
   id: string;
-  tipo_movimiento: TipoMovimiento;
+  tipo_movimiento?: TipoMovimiento;
   sede_id: string;
-  sede_nombre: string;
+  sede_nombre?: string;
   responsable: string;
   cedula: string;
   empresa: string;
   tipologia: TipologiaActivo;
   serial: string;
   motivo_ingreso: string;
-  motivo_salida?: string;
-  fecha_hora: string;
-  fecha_hora_salida?: string;
+  motivo_salida?: string | null;
+  fecha_hora?: string;
+  fecha_hora_ingreso?: string;
+  fecha_hora_salida?: string | null;
+  usuario_ingreso_id?: string;
+  usuario_ingreso_nombre?: string | null;
+  usuario_salida_id?: string | null;
+  usuario_salida_nombre?: string | null;
   estado_ciclo: 'en_sede' | 'salido';
   foto_url?: string;
 }
@@ -189,8 +179,31 @@ export function formatearCedulaMiles(valor: string): string {
   return soloDigitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+/**
+ * Convierte un timestamp a hora legible en formato Colombia
+ */
+export function formatearFechaHoraColombia(valor?: string | null): string {
+  if (!valor) return '';
+  try {
+    const d = new Date(valor);
+    if (isNaN(d.getTime())) return valor;
+    return d.toLocaleString('es-CO', {
+      timeZone: ZONA_HORARIA_COLOMBIA,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch (_) {
+    return valor;
+  }
+}
+
 export default function RegistroActivo() {
   const navigate = useNavigate();
+  const { perfil } = useAuth();
 
   // Estados de navegación y sede
   const [tipo_movimiento, setTipo_movimiento] = useState<TipoMovimiento>('entrada');
@@ -216,9 +229,15 @@ export default function RegistroActivo() {
   const [tipologia, setTipologia] = useState<TipologiaActivo>('');
   const [mostrarBottomSheet, setMostrarBottomSheet] = useState(false);
   const [serial, setSerial] = useState('');
+  const [candidatos_detectados, setCandidatos_detectados] = useState<string[]>([]);
+  const [activo_reconocido, setActivo_reconocido] = useState<{
+    tipologia: string;
+    empresa: string;
+    responsable?: string;
+    total_visitas: number;
+  } | null>(null);
   const [motivo_ingreso, setMotivo_ingreso] = useState('');
   const [motivo_salida, setMotivo_salida] = useState('');
-  const [foto_url, setFoto_url] = useState<string>('');
 
   // Categoría actual seleccionada del catálogo (undefined si no ha seleccionado)
   const categoriaActual = CATALOGO_TIPOLOGIAS.find(c => c.nombre === tipologia);
@@ -239,21 +258,22 @@ export default function RegistroActivo() {
     }
   };
 
-  // Estados de interfaz y lista local
+  // Estados de interfaz y datos
   const [registros, setRegistros] = useState<RegistroActivoItem[]>([]);
   const [mensaje_exito, setMensaje_exito] = useState('');
   const [error_formulario, setError_formulario] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [activo_remoto_salida, setActivo_remoto_salida] = useState<RegistroActivoItem | null>(null);
 
-  // Cargar sedes e historial local inicial
+  // 1. Cargar catálogo de sedes
   useEffect(() => {
-    async function cargar_datos() {
+    async function cargar_sedes() {
       try {
-        const { data } = await supabase.from('sedes').select('*').order('nombre');
-        if (data && data.length > 0) {
+        const { data, error } = await supabase.from('sedes').select('*').order('nombre');
+        if (!error && data && data.length > 0) {
           setSedes(data as Sede[]);
         } else {
-          // Fallback sedes locales si está offline
+          // Fallback con sedes locales si no hay conexión
           const sedes_locales: Sede[] = [
             { id: '1', nombre: 'Sede Principal Bogotá' },
             { id: '2', nombre: 'Centro Operativo Medellín' },
@@ -265,22 +285,110 @@ export default function RegistroActivo() {
       } catch (err) {
         console.error('Error al cargar sedes:', err);
       }
-
-      // Cargar registros locales
-      try {
-        const guardados = localStorage.getItem(CLAVE_STORAGE_ACTIVOS);
-        if (guardados) {
-          setRegistros(JSON.parse(guardados));
-        }
-      } catch (e) {
-        console.error('Error al cargar historial local de activos:', e);
-      }
     }
 
-    cargar_datos();
+    cargar_sedes();
   }, []);
 
-  // Guardar en localStorage cuando cambian los registros
+  // 2. Cargar movimientos de la sede desde Supabase
+  const cargar_movimientos_sede = useCallback(async (id_sede: string) => {
+    if (!id_sede) return;
+    try {
+      const { data, error } = await supabase
+        .from('movimientos_activos')
+        .select(`
+          id,
+          sede_id,
+          serial,
+          tipologia,
+          responsable,
+          cedula,
+          empresa,
+          motivo_ingreso,
+          fecha_hora_ingreso,
+          usuario_ingreso_id,
+          usuario_ingreso_nombre,
+          estado_ciclo,
+          motivo_salida,
+          fecha_hora_salida,
+          usuario_salida_id,
+          usuario_salida_nombre
+        `)
+        .eq('sede_id', id_sede)
+        .order('fecha_hora_ingreso', { ascending: false });
+
+      if (error) {
+        console.warn('Consulta a movimientos_activos en Supabase:', error.message);
+        // Fallback a localStorage
+        const guardados = localStorage.getItem(CLAVE_STORAGE_ACTIVOS);
+        if (guardados) {
+          try {
+            setRegistros(JSON.parse(guardados));
+          } catch (_) {}
+        }
+        return;
+      }
+
+      if (data) {
+        const sede_actual = sedes.find(s => s.id === id_sede);
+        const nombre_sede = sede_actual?.nombre || 'Sede';
+        const mapeados: RegistroActivoItem[] = data.map((item: any) => ({
+          id: item.id,
+          sede_id: item.sede_id,
+          sede_nombre: nombre_sede,
+          responsable: item.responsable,
+          cedula: item.cedula,
+          empresa: item.empresa,
+          tipologia: item.tipologia,
+          serial: item.serial,
+          motivo_ingreso: item.motivo_ingreso,
+          motivo_salida: item.motivo_salida,
+          fecha_hora: item.fecha_hora_ingreso,
+          fecha_hora_ingreso: item.fecha_hora_ingreso,
+          fecha_hora_salida: item.fecha_hora_salida,
+          usuario_ingreso_id: item.usuario_ingreso_id,
+          usuario_ingreso_nombre: item.usuario_ingreso_nombre,
+          usuario_salida_id: item.usuario_salida_id,
+          usuario_salida_nombre: item.usuario_salida_nombre,
+          estado_ciclo: item.estado_ciclo
+        }));
+        setRegistros(mapeados);
+        try {
+          localStorage.setItem(CLAVE_STORAGE_ACTIVOS, JSON.stringify(mapeados));
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.error('Error al sincronizar movimientos con Supabase:', err);
+    }
+  }, [sedes]);
+
+  // 3. Suscripción en tiempo real (Supabase Realtime) cuando se activa la sede
+  useEffect(() => {
+    if (!sede_id) return;
+    cargar_movimientos_sede(sede_id);
+
+    const canal = supabase
+      .channel(`realtime-activos-${sede_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'Minuta_seguridad',
+          table: 'movimientos_activos',
+          filter: `sede_id=eq.${sede_id}`
+        },
+        () => {
+          cargar_movimientos_sede(sede_id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [sede_id, cargar_movimientos_sede]);
+
+  // Guardar en localStorage como caché secundario
   const actualizar_registros_locales = (nuevos: RegistroActivoItem[]) => {
     setRegistros(nuevos);
     try {
@@ -297,34 +405,171 @@ export default function RegistroActivo() {
   };
 
   // Callback cuando la cámara / OCR detecta un serial
-  const manejar_serial_detectado = (serial_extraido: string, _foto?: File, url_foto?: string) => {
+  const manejar_serial_detectado = (
+    serial_extraido: string, 
+    _foto?: File, 
+    _url_foto?: string, 
+    candidatos_extraidos?: string[]
+  ) => {
     if (serial_extraido) {
       setSerial(serial_extraido.toUpperCase());
     }
-    if (url_foto) {
-      setFoto_url(url_foto);
+    if (candidatos_extraidos && candidatos_extraidos.length > 0) {
+      setCandidatos_detectados(candidatos_extraidos);
+    } else if (serial_extraido) {
+      setCandidatos_detectados([serial_extraido.toUpperCase()]);
+    } else {
+      setCandidatos_detectados([]);
     }
   };
 
-  // Activo localizado en salida
+  // 4. Autocompletado Predictivo Inteligente (Memoria del Activo al Escanear o Digitar)
+  useEffect(() => {
+    const serial_limpio = serial.trim().toUpperCase();
+    if (tipo_movimiento !== 'entrada' || serial_limpio.length < 4) {
+      setActivo_reconocido(null);
+      return;
+    }
+
+    let cancelado = false;
+
+    async function buscar_historial_activo() {
+      // A. Consultar en Supabase el historial global de visitas de este serial
+      try {
+        const { data, error } = await supabase
+          .from('movimientos_activos')
+          .select('tipologia, empresa, responsable, cedula, fecha_hora_ingreso')
+          .ilike('serial', serial_limpio)
+          .order('fecha_hora_ingreso', { ascending: false });
+
+        if (!cancelado && !error && data && data.length > 0) {
+          const mas_reciente = data[0];
+          setActivo_reconocido({
+            tipologia: mas_reciente.tipologia,
+            empresa: mas_reciente.empresa,
+            responsable: mas_reciente.responsable,
+            total_visitas: data.length
+          });
+
+          // Precargar automáticamente datos preexistentes
+          setTipologia(prev => prev ? prev : mas_reciente.tipologia);
+          setEmpresa(prev => prev ? prev : mas_reciente.empresa);
+          setResponsable(prev => prev ? prev : mas_reciente.responsable);
+          setCedula(prev => prev ? prev : formatearCedulaMiles(mas_reciente.cedula));
+          return;
+        }
+      } catch (e) {
+        console.warn('Búsqueda predictiva en Supabase falló (usando memoria local):', e);
+      }
+
+      // B. Fallback a memoria local
+      if (!cancelado) {
+        const anteriores = registros.filter(r => r.serial.trim().toUpperCase() === serial_limpio);
+        if (anteriores.length > 0) {
+          const mas_reciente = anteriores[0];
+          setActivo_reconocido({
+            tipologia: mas_reciente.tipologia,
+            empresa: mas_reciente.empresa,
+            responsable: mas_reciente.responsable,
+            total_visitas: anteriores.length
+          });
+
+          setTipologia(prev => prev ? prev : mas_reciente.tipologia);
+          setEmpresa(prev => prev ? prev : mas_reciente.empresa);
+          setResponsable(prev => prev ? prev : mas_reciente.responsable);
+          setCedula(prev => prev ? prev : formatearCedulaMiles(mas_reciente.cedula));
+        } else {
+          setActivo_reconocido(null);
+        }
+      }
+    }
+
+    const timer = setTimeout(buscar_historial_activo, 300);
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [serial, tipo_movimiento, registros]);
+
+  // 5. Búsqueda de activo en SALIDA (en memoria local y consulta directa a Supabase)
   const serial_busqueda = serial.trim().toUpperCase();
-  const activo_encontrado_salida = (tipo_movimiento === 'salida' && serial_busqueda && sede_id)
+  const activo_local_salida = (tipo_movimiento === 'salida' && serial_busqueda && sede_id)
     ? registros.find(r => 
         r.sede_id === sede_id && 
         r.serial.trim().toUpperCase() === serial_busqueda && 
-        (r.estado_ciclo === 'en_sede' || (!r.estado_ciclo && r.tipo_movimiento === 'entrada'))
+        r.estado_ciclo === 'en_sede'
       )
     : null;
 
-  // Manejar guardado de ENTRADA
-  const manejar_guardar_entrada = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (tipo_movimiento !== 'salida' || !serial_busqueda || !sede_id || activo_local_salida) {
+      setActivo_remoto_salida(null);
+      return;
+    }
+
+    let cancelado = false;
+    async function buscar_remoto_salida() {
+      try {
+        const { data, error } = await supabase
+          .from('movimientos_activos')
+          .select('*')
+          .eq('sede_id', sede_id)
+          .ilike('serial', serial_busqueda)
+          .eq('estado_ciclo', 'en_sede')
+          .order('fecha_hora_ingreso', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!cancelado && !error && data) {
+          const sede_nombre = sedes.find(s => s.id === data.sede_id)?.nombre || 'Sede';
+          setActivo_remoto_salida({
+            id: data.id,
+            sede_id: data.sede_id,
+            sede_nombre,
+            serial: data.serial,
+            tipologia: data.tipologia,
+            responsable: data.responsable,
+            cedula: data.cedula,
+            empresa: data.empresa,
+            motivo_ingreso: data.motivo_ingreso,
+            fecha_hora: data.fecha_hora_ingreso,
+            fecha_hora_ingreso: data.fecha_hora_ingreso,
+            fecha_hora_salida: data.fecha_hora_salida,
+            usuario_ingreso_id: data.usuario_ingreso_id,
+            usuario_ingreso_nombre: data.usuario_ingreso_nombre,
+            estado_ciclo: data.estado_ciclo
+          });
+        } else if (!cancelado) {
+          setActivo_remoto_salida(null);
+        }
+      } catch (_) {
+        if (!cancelado) setActivo_remoto_salida(null);
+      }
+    }
+
+    const timer = setTimeout(buscar_remoto_salida, 250);
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [tipo_movimiento, serial_busqueda, sede_id, activo_local_salida, sedes]);
+
+  const activo_encontrado_salida = activo_local_salida || activo_remoto_salida;
+
+  // 6. Manejar guardado de ENTRADA (Persistencia en Supabase)
+  const manejar_guardar_entrada = async (e: React.FormEvent) => {
     e.preventDefault();
     setError_formulario('');
     setMensaje_exito('');
 
-    // Validación de Geocerca GPS
+    // Validación de Geocerca GPS Satelital
     if (!geocerca.estaDentroGeocerca || !geocerca.sedeAutorizada || !sede_id) {
       setError_formulario('Acceso Denegado: Su dispositivo debe encontrarse físicamente en la sede autorizada.');
+      return;
+    }
+
+    if (!perfil?.id) {
+      setError_formulario('Sesión no identificada. Por favor vuelva a iniciar sesión.');
       return;
     }
 
@@ -360,18 +605,19 @@ export default function RegistroActivo() {
     }
 
     if (!motivo_limpio) {
-      setError_formulario('Por favor indique el motivo del ingreso del equipo.');
+      setError_formulario('Por favor indique el motivo del ingreso del activo.');
       return;
     }
 
     setGuardando(true);
 
     const sede_encontrada = sedes.find(s => s.id === sede_id);
-    const nombre_sede = sede_encontrada ? sede_encontrada.nombre : 'Sede General';
+    const nombre_sede = sede_encontrada ? sede_encontrada.nombre : 'Sede Confirmada';
+    const nuevo_id = generateUUID();
+    const ahora_iso = new Date().toISOString();
 
     const nuevo_registro: RegistroActivoItem = {
-      id: generateUUID(),
-      tipo_movimiento: 'entrada',
+      id: nuevo_id,
       sede_id,
       sede_nombre: nombre_sede,
       responsable: responsable_limpio,
@@ -380,41 +626,71 @@ export default function RegistroActivo() {
       tipologia,
       serial: serial_limpio,
       motivo_ingreso: motivo_limpio,
-      fecha_hora: new Date().toLocaleString('es-CO', { 
-        timeZone: ZONA_HORARIA_COLOMBIA,
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit'
-      }),
-      estado_ciclo: 'en_sede',
-      foto_url
+      fecha_hora: ahora_iso,
+      fecha_hora_ingreso: ahora_iso,
+      usuario_ingreso_id: perfil.id,
+      usuario_ingreso_nombre: perfil.nombre,
+      estado_ciclo: 'en_sede'
     };
 
-    const nueva_lista = [nuevo_registro, ...registros];
-    actualizar_registros_locales(nueva_lista);
+    try {
+      // Inserción en Supabase
+      const { error: errorInsert } = await supabase
+        .from('movimientos_activos')
+        .insert({
+          id: nuevo_id,
+          sede_id,
+          serial: serial_limpio,
+          tipologia,
+          responsable: responsable_limpio,
+          cedula: cedula_limpia,
+          empresa: empresa_limpia,
+          motivo_ingreso: motivo_limpio,
+          usuario_ingreso_id: perfil.id,
+          usuario_ingreso_nombre: perfil.nombre,
+          estado_ciclo: 'en_sede'
+        });
 
-    setMensaje_exito(`¡Entrada registrada con éxito para ${responsable_limpio} (Serial: ${nuevo_registro.serial})!`);
-    
-    // Limpiar campos para el siguiente registro
-    setResponsable('');
-    setCedula('');
-    setEmpresa('');
-    setTipologia('');
-    setSerial('');
-    setMotivo_ingreso('');
-    setFoto_url('');
-    setGuardando(false);
+      if (errorInsert) {
+        console.error('Error insertando en Supabase:', errorInsert);
+        if (errorInsert.message?.includes('does not exist') || errorInsert.code === '42P01') {
+          setError_formulario('Aviso: La tabla "movimientos_activos" aún no existe en Supabase. Ejecute el SQL correspondiente.');
+        } else {
+          setError_formulario(`Error al guardar en base de datos: ${errorInsert.message}`);
+        }
+        // Guardar copia local de respaldo
+        const nueva_lista = [nuevo_registro, ...registros];
+        actualizar_registros_locales(nueva_lista);
+      } else {
+        const nueva_lista = [nuevo_registro, ...registros.filter(r => r.id !== nuevo_id)];
+        actualizar_registros_locales(nueva_lista);
+        setMensaje_exito(`¡Entrada registrada con éxito para ${responsable_limpio} (Serial: ${serial_limpio})!`);
+      }
+    } catch (err: any) {
+      console.error('Excepción al registrar entrada:', err);
+      setError_formulario(`Error inesperado: ${err?.message || err}`);
+      const nueva_lista = [nuevo_registro, ...registros];
+      actualizar_registros_locales(nueva_lista);
+    } finally {
+      // Limpiar campos para el siguiente registro
+      setResponsable('');
+      setCedula('');
+      setEmpresa('');
+      setTipologia('');
+      setSerial('');
+      setCandidatos_detectados([]);
+      setActivo_reconocido(null);
+      setMotivo_ingreso('');
+      setGuardando(false);
 
-    setTimeout(() => {
-      setMensaje_exito('');
-    }, 4500);
+      setTimeout(() => {
+        setMensaje_exito('');
+      }, 4500);
+    }
   };
 
-  // Manejar guardado de SALIDA
-  const manejar_guardar_salida = (e: React.FormEvent) => {
+  // 7. Manejar guardado de SALIDA (Actualización en Supabase)
+  const manejar_guardar_salida = async (e: React.FormEvent) => {
     e.preventDefault();
     setError_formulario('');
     setMensaje_exito('');
@@ -430,57 +706,93 @@ export default function RegistroActivo() {
       return;
     }
 
+    if (!perfil?.id) {
+      setError_formulario('Sesión no identificada. Por favor vuelva a iniciar sesión.');
+      return;
+    }
+
     const motivo_salida_limpio = motivo_salida.trim();
     if (!motivo_salida_limpio) {
-      setError_formulario('Por favor indique el motivo de salida del equipo.');
+      setError_formulario('Por favor indique el motivo de salida del activo.');
       return;
     }
 
     setGuardando(true);
+    const ahora_iso = new Date().toISOString();
+    const id_objetivo = activo_encontrado_salida.id;
 
-    const fecha_salida_ahora = new Date().toLocaleString('es-CO', { 
-      timeZone: ZONA_HORARIA_COLOMBIA,
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit', 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit'
-    });
+    try {
+      const { error: errorUpdate } = await supabase
+        .from('movimientos_activos')
+        .update({
+          estado_ciclo: 'salido',
+          motivo_salida: motivo_salida_limpio,
+          fecha_hora_salida: ahora_iso,
+          usuario_salida_id: perfil.id,
+          usuario_salida_nombre: perfil.nombre
+        })
+        .eq('id', id_objetivo);
 
-    const lista_actualizada = registros.map(r => {
-      if (r.id === activo_encontrado_salida.id) {
-        return {
-          ...r,
-          tipo_movimiento: 'salida' as TipoMovimiento,
-          estado_ciclo: 'salido' as const,
-          fecha_hora_salida: fecha_salida_ahora,
-          motivo_salida: motivo_salida_limpio
-        };
+      if (errorUpdate) {
+        console.error('Error actualizando salida en Supabase:', errorUpdate);
+        setError_formulario(`Error al registrar salida en base de datos: ${errorUpdate.message}`);
+      } else {
+        setMensaje_exito(`¡Salida registrada con éxito! El activo ${activo_encontrado_salida.serial} ha sido marcado como retirado de la sede.`);
       }
-      return r;
-    });
 
-    actualizar_registros_locales(lista_actualizada);
+      // Actualizar estado local
+      const lista_actualizada = registros.map(r => {
+        if (r.id === id_objetivo) {
+          return {
+            ...r,
+            estado_ciclo: 'salido' as const,
+            fecha_hora_salida: ahora_iso,
+            motivo_salida: motivo_salida_limpio,
+            usuario_salida_id: perfil.id,
+            usuario_salida_nombre: perfil.nombre
+          };
+        }
+        return r;
+      });
+      actualizar_registros_locales(lista_actualizada);
+      setActivo_remoto_salida(null);
+    } catch (err: any) {
+      console.error('Excepción al registrar salida:', err);
+      setError_formulario(`Error inesperado: ${err?.message || err}`);
+    } finally {
+      // Limpiar campos de salida
+      setSerial('');
+      setCandidatos_detectados([]);
+      setActivo_reconocido(null);
+      setMotivo_salida('');
+      setGuardando(false);
 
-    setMensaje_exito(`¡Salida registrada con éxito! El activo ${activo_encontrado_salida.serial} ha sido marcado como retirado de la sede.`);
-
-    // Limpiar campos de salida
-    setSerial('');
-    setMotivo_salida('');
-    setGuardando(false);
-
-    setTimeout(() => {
-      setMensaje_exito('');
-    }, 4500);
+      setTimeout(() => {
+        setMensaje_exito('');
+      }, 4500);
+    }
   };
 
-  const eliminar_registro_prueba = (id: string) => {
+  // 8. Eliminación de registros (Exclusivo para administradores)
+  const eliminar_registro_prueba = async (id: string) => {
+    if (perfil?.rol !== 'administrador') {
+      alert('Solo los administradores pueden eliminar registros de activos.');
+      return;
+    }
+    if (!confirm('¿Está seguro de eliminar este registro del historial?')) {
+      return;
+    }
+
+    try {
+      await supabase.from('movimientos_activos').delete().eq('id', id);
+    } catch (err) {
+      console.error('Error eliminando en Supabase:', err);
+    }
     const filtrados = registros.filter(r => r.id !== id);
     actualizar_registros_locales(filtrados);
   };
 
-  // Métricas calculadas para la sede seleccionada
+  // Métricas calculadas para la sede seleccionada en tiempo real
   const registros_sede = registros.filter(r => r.sede_id === sede_id);
   const total_en_sede = registros_sede.filter(r => r.estado_ciclo === 'en_sede' || (!r.estado_ciclo && r.tipo_movimiento === 'entrada')).length;
   const total_salidos = registros_sede.filter(r => r.estado_ciclo === 'salido').length;
@@ -523,10 +835,14 @@ export default function RegistroActivo() {
             onClick={() => {
               setTipo_movimiento('entrada');
               setError_formulario('');
+              setCandidatos_detectados([]);
+              setActivo_reconocido(null);
             }}
           >
-            <ArrowDownLeft size={20} />
-            <span>🟢 Entrada a Sede</span>
+            <div className="btn-toggle-icono">
+              <ArrowDownLeft size={18} strokeWidth={2.4} />
+            </div>
+            <span className="btn-toggle-texto">Entrada a Sede</span>
           </button>
           <button
             type="button"
@@ -534,10 +850,14 @@ export default function RegistroActivo() {
             onClick={() => {
               setTipo_movimiento('salida');
               setError_formulario('');
+              setCandidatos_detectados([]);
+              setActivo_reconocido(null);
             }}
           >
-            <ArrowUpRight size={20} />
-            <span>🔴 Salida de Sede</span>
+            <div className="btn-toggle-icono">
+              <ArrowUpRight size={18} strokeWidth={2.4} />
+            </div>
+            <span className="btn-toggle-texto">Salida de Sede</span>
           </button>
         </div>
 
@@ -563,11 +883,11 @@ export default function RegistroActivo() {
               </span>
             </div>
 
-            {/* 2. Sede de la Operación (Geocerca Satelital) */}
+            {/* 2. Sede (Geocerca Satelital) */}
             <div className="form-grupo">
               <label className="form-label">
                 <Building2 size={16} color="#da2d34" />
-                <span>Sede de la Operación <span className="requerido">*</span></span>
+                <span>Sede <span className="requerido">*</span></span>
               </label>
 
               {/* Estado Geocerca: Éxito (Sede detectada y autorizada) */}
@@ -638,7 +958,7 @@ export default function RegistroActivo() {
                       onClick={geocerca.actualizarUbicacion}
                       className="btn-gps-recargar"
                       title="Reintentar señal GPS"
-                    >
+                      >
                       <RotateCw size={13} />
                       <span>Reintentar GPS</span>
                     </button>
@@ -666,7 +986,93 @@ export default function RegistroActivo() {
               )}
             </div>
 
-            {/* 3. Persona Responsable del Ingreso */}
+            {/* 3. Escáner con Cámara (Solo Cámara en vivo) */}
+            <div className="form-grupo">
+              <label className="form-label">
+                <Hash size={16} color="#da2d34" />
+                <span>Escáner del Serial con Cámara</span>
+              </label>
+              <LectorSerialCamara
+                serial_actual={serial}
+                al_detectar_serial={manejar_serial_detectado}
+              />
+            </div>
+
+            {/* 4. Serial del Activo */}
+            <div className="form-grupo">
+              <label className="form-label">
+                <Hash size={16} color="#da2d34" />
+                <span>Número de Serie (Serial) <span className="requerido">*</span></span>
+              </label>
+              <input
+                type="text"
+                className="form-input input-serial"
+                placeholder="Escriba o escanee el serial del equipo"
+                value={serial}
+                onChange={(e) => setSerial(e.target.value.toUpperCase())}
+                required
+              />
+
+              {/* Selector de opciones detectadas al escanear */}
+              {candidatos_detectados.length > 1 && (
+                <div className="selector-candidatos-contenedor">
+                  <div className="selector-candidatos-cabecera">
+                    <Sparkles size={14} color="#da2d34" />
+                    <span>Opciones detectadas al escanear (toque para elegir):</span>
+                  </div>
+                  <div className="selector-candidatos-chips">
+                    {candidatos_detectados.map((cand, idx) => {
+                      const es_seleccionado = serial.trim().toUpperCase() === cand.trim().toUpperCase();
+                      return (
+                        <button
+                          key={`${cand}-${idx}`}
+                          type="button"
+                          className={`chip-candidato-selector ${es_seleccionado ? 'activo' : ''}`}
+                          onClick={() => setSerial(cand.trim().toUpperCase())}
+                          title={`Seleccionar ${cand}`}
+                        >
+                          {es_seleccionado && <CheckCircle2 size={13} />}
+                          <span>{cand}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Notificación de activo reconocido en historial (Autocompletado Predictivo) */}
+              {activo_reconocido && (
+                <div className="banner-activo-reconocido">
+                  <div className="banner-reconocido-icono">
+                    <Sparkles size={18} color="#16a34a" />
+                  </div>
+                  <div className="banner-reconocido-cuerpo">
+                    <div className="banner-reconocido-titulo">
+                      <span>¡Activo Reconocido en Historial!</span>
+                      <span className="badge-visitas-previas">
+                        {activo_reconocido.total_visitas} {activo_reconocido.total_visitas === 1 ? 'visita previa' : 'visitas previas'}
+                      </span>
+                    </div>
+                    <div className="banner-reconocido-detalles">
+                      <span>Tipología: <strong>{activo_reconocido.tipologia}</strong></span>
+                      <span>•</span>
+                      <span>Empresa: <strong>{activo_reconocido.empresa}</strong></span>
+                      {activo_reconocido.responsable && (
+                        <>
+                          <span>•</span>
+                          <span>Portador habitual: <strong>{activo_reconocido.responsable}</strong></span>
+                        </>
+                      )}
+                    </div>
+                    <span className="banner-reconocido-nota">
+                      ✓ Datos completados automáticamente. Puede modificarlos si este ingreso corresponde a otra persona o motivo.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 5. Persona Responsable del Ingreso */}
             <div className="form-grupo">
               <label className="form-label">
                 <UserCheck size={16} color="#da2d34" />
@@ -683,7 +1089,7 @@ export default function RegistroActivo() {
               />
             </div>
 
-            {/* 4. Cédula de la Persona (Formato con miles en vivo) */}
+            {/* 6. Cédula de la Persona (Formato con miles en vivo) */}
             <div className="form-grupo">
               <label className="form-label">
                 <CreditCard size={16} color="#da2d34" />
@@ -703,7 +1109,7 @@ export default function RegistroActivo() {
               </span>
             </div>
 
-            {/* 5. Empresa a la que pertenece */}
+            {/* 7. Empresa a la que pertenece */}
             <div className="form-grupo">
               <label className="form-label">
                 <Briefcase size={16} color="#da2d34" />
@@ -720,7 +1126,7 @@ export default function RegistroActivo() {
               />
             </div>
 
-            {/* 6. Tipología del Activo (Catálogo Táctil / Bottom Sheet Móvil) */}
+            {/* 8. Tipología del Activo (Catálogo Táctil / Bottom Sheet Móvil) */}
             <div className="form-grupo">
               <label className="form-label">
                 {categoriaActual ? (
@@ -728,7 +1134,7 @@ export default function RegistroActivo() {
                 ) : (
                   <Layers size={16} color="#da2d34" />
                 )}
-                <span>Tipología del Activo / Equipo <span className="requerido">*</span></span>
+                <span>Tipología del Activo <span className="requerido">*</span></span>
               </label>
               <div 
                 className={`bottom-sheet-trigger ${!categoriaActual ? 'sin-seleccion' : ''}`}
@@ -783,44 +1189,16 @@ export default function RegistroActivo() {
               </span>
             </div>
 
-            {/* 7. Escáner con Cámara (Solo Cámara en vivo) */}
-            <div className="form-grupo">
-              <label className="form-label">
-                <Hash size={16} color="#da2d34" />
-                <span>Escáner de Serial con Cámara (OCR / Código de Barras)</span>
-              </label>
-              <LectorSerialCamara
-                serial_actual={serial}
-                al_detectar_serial={manejar_serial_detectado}
-              />
-            </div>
-
-            {/* 8. Serial del Activo */}
-            <div className="form-grupo">
-              <label className="form-label">
-                <Hash size={16} color="#da2d34" />
-                <span>Número de Serie (Serial) <span className="requerido">*</span></span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Escriba o escanee el serial del equipo"
-                value={serial}
-                onChange={(e) => setSerial(e.target.value.toUpperCase())}
-                required
-              />
-            </div>
-
-            {/* 9. Motivo de Ingreso */}
+            {/* 9. Motivo del Ingreso del Activo */}
             <div className="form-grupo">
               <label className="form-label">
                 <FileQuestion size={16} color="#da2d34" />
-                <span>Motivo de Ingreso del Equipo <span className="requerido">*</span></span>
+                <span>Motivo del Ingreso del Activo <span className="requerido">*</span></span>
               </label>
               <textarea
                 className="form-textarea"
                 rows={2}
-                placeholder="Describa el motivo por el que ingresa el equipo a la sede (ej. mantenimiento, labores diarias, revisión técnica)..."
+                placeholder="Describa el motivo por el que ingresa el activo a la sede (ej. mantenimiento, labores diarias, revisión técnica)..."
                 value={motivo_ingreso}
                 onChange={(e) => setMotivo_ingreso(e.target.value)}
                 required
@@ -870,11 +1248,11 @@ export default function RegistroActivo() {
               </span>
             </div>
 
-            {/* Sede de la Operación (Geocerca Satelital) */}
+            {/* Sede (Geocerca Satelital) */}
             <div className="form-grupo">
               <label className="form-label">
                 <Building2 size={16} color="#da2d34" />
-                <span>Sede de la Operación <span className="requerido">*</span></span>
+                <span>Sede <span className="requerido">*</span></span>
               </label>
 
               {geocerca.estaDentroGeocerca && geocerca.sedeAutorizada ? (
@@ -940,11 +1318,38 @@ export default function RegistroActivo() {
             <div className="form-grupo">
               <input
                 type="text"
-                className="form-input"
+                className="form-input input-serial"
                 placeholder="Escriba el serial del equipo a retirar..."
                 value={serial}
                 onChange={(e) => setSerial(e.target.value.toUpperCase())}
               />
+
+              {/* Selector de opciones detectadas al escanear para Salida */}
+              {candidatos_detectados.length > 1 && (
+                <div className="selector-candidatos-contenedor">
+                  <div className="selector-candidatos-cabecera">
+                    <Sparkles size={14} color="#da2d34" />
+                    <span>Opciones detectadas al escanear (toque para elegir):</span>
+                  </div>
+                  <div className="selector-candidatos-chips">
+                    {candidatos_detectados.map((cand, idx) => {
+                      const es_seleccionado = serial.trim().toUpperCase() === cand.trim().toUpperCase();
+                      return (
+                        <button
+                          key={`${cand}-${idx}`}
+                          type="button"
+                          className={`chip-candidato-selector ${es_seleccionado ? 'activo' : ''}`}
+                          onClick={() => setSerial(cand.trim().toUpperCase())}
+                          title={`Buscar y seleccionar ${cand}`}
+                        >
+                          {es_seleccionado && <CheckCircle2 size={13} />}
+                          <span>{cand}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Caso A: Activo encontrado en la sede actual */}
@@ -979,12 +1384,20 @@ export default function RegistroActivo() {
                   </div>
                   <div className="activo-dato-item">
                     <span className="activo-dato-etiqueta">Fecha y Hora de Ingreso</span>
-                    <span className="activo-dato-valor">{activo_encontrado_salida.fecha_hora}</span>
+                    <span className="activo-dato-valor">
+                      {formatearFechaHoraColombia(activo_encontrado_salida.fecha_hora_ingreso || activo_encontrado_salida.fecha_hora)}
+                    </span>
                   </div>
                   <div className="activo-dato-item">
                     <span className="activo-dato-etiqueta">Motivo de Ingreso</span>
                     <span className="activo-dato-valor">{activo_encontrado_salida.motivo_ingreso || 'No especificado'}</span>
                   </div>
+                  {activo_encontrado_salida.usuario_ingreso_nombre && (
+                    <div className="activo-dato-item">
+                      <span className="activo-dato-etiqueta">Vigilante de Entrada</span>
+                      <span className="activo-dato-valor">{activo_encontrado_salida.usuario_ingreso_nombre}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Motivo de Salida Obligatorio */}
@@ -1061,7 +1474,7 @@ export default function RegistroActivo() {
           {/* Listado de Activos Registrados en la Sede */}
           <div className="inventario-lista-contenedor">
             <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#281716', margin: '8px 0' }}>
-              Historial de Equipos en la Sede
+              Historial de Activos en la Sede
             </h3>
 
             {registros_sede.length === 0 ? (
@@ -1091,12 +1504,18 @@ export default function RegistroActivo() {
                     <div className="activo-item-detalles">
                       <span><strong>Responsable:</strong> {item.responsable} (CC: {formatearCedulaMiles(item.cedula)})</span>
                       <span><strong>Empresa:</strong> {item.empresa} • <strong>Tipo:</strong> {item.tipologia}</span>
-                      <span><strong>Ingreso:</strong> {item.fecha_hora}</span>
+                      <span>
+                        <strong>Ingreso:</strong> {formatearFechaHoraColombia(item.fecha_hora_ingreso || item.fecha_hora)}
+                        {item.usuario_ingreso_nombre && ` • Vigilante: ${item.usuario_ingreso_nombre}`}
+                      </span>
                       {item.motivo_ingreso && (
                         <span><strong>Motivo Ingreso:</strong> {item.motivo_ingreso}</span>
                       )}
                       {item.fecha_hora_salida && (
-                        <span><strong>Salida:</strong> {item.fecha_hora_salida} • <strong>Motivo:</strong> {item.motivo_salida || 'Sin motivo'}</span>
+                        <span>
+                          <strong>Salida:</strong> {formatearFechaHoraColombia(item.fecha_hora_salida)} • <strong>Motivo:</strong> {item.motivo_salida || 'Sin motivo'}
+                          {item.usuario_salida_nombre && ` • Autorizó: ${item.usuario_salida_nombre}`}
+                        </span>
                       )}
                     </div>
                   </div>
