@@ -32,6 +32,10 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://api.minutaseguridadclaro.com' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc5MzAyOTM4MCwiZXhwIjo0OTQ4NzAyOTgwLCJyb2xlIjoiYW5vbiJ9.-_1PeXYZ0ajwOwsnU-cjsjnglJvZgUJ3Ak0G3QDzPok' }}
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
